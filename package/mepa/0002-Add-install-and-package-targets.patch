@@ -1,0 +1,758 @@
+From e5be40b2108a40e2b2de9f9c52832dd1ecb68d8d Mon Sep 17 00:00:00 2001
+From: Vincent Cruz <mooz@blockos.org>
+Date: Tue, 3 Mar 2026 18:09:15 +0100
+Subject: [PATCH] Add install and package targets.
+
+---
+ .cmake/common.cmake                   |  36 +++++
+ .cmake/mepaConfig.cmake.in            |   5 +
+ CMakeLists.txt                        | 211 +++++++++++++++++---------
+ mepa/.cmake/mepa-macros.cmake         |  66 ++++----
+ mepa/CMakeLists.txt                   |   4 +-
+ mepa/aqr/CMakeLists.txt               |  14 +-
+ mepa/dummy_phy/CMakeLists.txt         |   2 +-
+ mepa/intel/CMakeLists.txt             |   6 +-
+ mepa/ksz9031/CMakeLists.txt           |   4 +-
+ mepa/microchip/lan80xx/CMakeLists.txt |   8 +-
+ mepa/microchip/lan867x/CMakeLists.txt |   4 +-
+ mepa/microchip/lan8770/CMakeLists.txt |   4 +-
+ mepa/microchip/lan8814/CMakeLists.txt |   9 +-
+ mepa/microchip/lan884x/CMakeLists.txt |   4 +-
+ mepa/microchip/lan887x/CMakeLists.txt |   5 +-
+ mepa/microchip/lan8x8x/CMakeLists.txt |   8 +-
+ mepa/vtss/CMakeLists.txt              |   4 +-
+ mepa_demo/CMakeLists.txt              |   7 +-
+ 18 files changed, 255 insertions(+), 146 deletions(-)
+ create mode 100644 .cmake/mepaConfig.cmake.in
+
+diff --git a/.cmake/common.cmake b/.cmake/common.cmake
+index 9e816ba..eb004b8 100644
+--- a/.cmake/common.cmake
++++ b/.cmake/common.cmake
+@@ -9,3 +9,39 @@ if (${PROJECT_NAME} STREQUAL ${CMAKE_PROJECT_NAME})
+   include(./.cmake/tags.cmake)
+ endif()
+ 
++macro(install_targets)
++    set(options        "")
++    set(oneValueArgs   "")
++    set(multiValueArgs TARGETS)
++
++    cmake_parse_arguments(_args "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
++
++    foreach(_tgt ${_args_TARGETS})
++      if(NOT TARGET ${_tgt})
++        message(FATAL_ERROR "Unknown target ${_tgt}")
++      endif()
++
++      get_target_property(_skip ${_tgt} EXCLUDE_FROM_ALL)
++      if(${_skip})
++        continue()
++      endif()
++
++      export(
++        TARGETS ${_tgt}
++        NAMESPACE "mepa::"
++        APPEND
++        FILE ${PROJECT_BINARY_DIR}/mepa.cmake
++      )
++      set(_tgt_path $<PATH:RELATIVE_PATH,$<TARGET_FILE_DIR:${_tgt}>,${CMAKE_BINARY_DIR}>)
++
++      install(
++          TARGETS ${_tgt}
++          EXPORT mepaTargets
++          RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}/${_tgt_path}
++          PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/mepa
++          INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/mepa
++          ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/${_tgt_path}
++          LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/${_tgt_path}
++      )
++    endforeach()
++endmacro()
+\ No newline at end of file
+diff --git a/.cmake/mepaConfig.cmake.in b/.cmake/mepaConfig.cmake.in
+new file mode 100644
+index 0000000..91d9a9f
+--- /dev/null
++++ b/.cmake/mepaConfig.cmake.in
+@@ -0,0 +1,5 @@
++@PACKAGE_INIT@
++
++include ( "${CMAKE_CURRENT_LIST_DIR}/mepaTargets.cmake" )
++
++check_required_components(mepa)
+\ No newline at end of file
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 4d62b75..0ba09ac 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -3,7 +3,10 @@
+ 
+ cmake_minimum_required(VERSION 3.15)
+ 
+-project(mepa_api)
++project(mepa_api
++    VERSION 2025.12
++    LANGUAGES C ASM
++)
+ 
+ set(CMAKE_C_STANDARD 11)
+ set(CMAKE_C_STANDARD_REQUIRED ON)
+@@ -31,6 +34,64 @@ mark_as_advanced(BUILD_MEPA_DEMO MESA_PRE_AG BUILD_DOXYGEN)
+ 
+ include(.cmake/doxygen.cmake)
+ 
++# Detect wether the compiler either support __VA_OPT__ or the GNU extension for __VA_ARGS__
++include(CheckCSourceCompiles)
++include(CMakePushCheckState)
++
++check_c_source_compiles([[
++  #define FOO(...) __VA_OPT__(int) __VA_ARGS__
++  int main(void) {
++      int x = FOO() 4;
++      FOO(y = 2);
++      return x +         install(
++            TARGETS ${A_LIB}
++            EXPORT mepaTargets
++            PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
++            INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
++            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/mepa
++            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/mepa
++        )
++y;
++  }
++]] HAS___VA_OPT__)
++
++if(HAS___VA_OPT__)
++    add_compile_definitions(LMU_PP_USE___VA_OPT__)
++else()
++    cmake_push_check_state(RESET)
++
++    try_compile(HAS__VA_ARG__GNU_EXT
++        SOURCE_FROM_CONTENT test_va_arg_gnu_ext.c [[
++            #include <assert.h>
++            #define SEQ() 2, 1, 0
++            #define ARGN(_1, _2, N, ...) N
++            #define COUNT_IMPL(_, ...) ARGN(__VA_ARGS__)
++            #define COUNT(...) COUNT_IMPL(0, ##__VA_ARGS__, SEQ())
++            int main(void) {
++            _Static_assert(0 == COUNT());
++            _Static_assert(1 == COUNT(foo));
++            _Static_assert(2 == COUNT(foo, bar));
++            return 0;
++            }
++        ]]
++        C_STANDARD 11
++        C_STANDARD_REQUIRED ON
++        C_EXTENSIONS ON
++        OUTPUT_VARIABLE OUTPUT
++    )
++
++    cmake_pop_check_state()
++
++    if(NOT HAS__VA_ARG__GNU_EXT)
++        message(FATAL_ERROR "${CMAKE_C_COMPILER} does not support __VA_ARG__ GNU extension.")
++    else()
++        set(CMAKE_C_EXTENSIONS ON)
++    endif()
++endif()
++
++include(GNUInstallDirs)
++include(CMakePackageConfigHelpers)
++
+ add_subdirectory(mepa)
+ 
+ include_directories(me/include)
+@@ -78,53 +139,6 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+     target_compile_definitions(lm_utils PRIVATE -DLMU_OS_LINUX)
+ endif ()
+ 
+-# Detect wether the compiler either support __VA_OPT__ or the GNU extension for __VA_ARGS__
+-include(CheckCSourceCompiles)
+-include(CMakePushCheckState)
+-
+-check_c_source_compiles([[
+-  #define FOO(...) __VA_OPT__(int) __VA_ARGS__
+-  int main(void) {
+-      int x = FOO() 4;
+-      FOO(y = 2);
+-      return x + y;
+-  }
+-]] HAS___VA_OPT__)
+-
+-if(HAS___VA_OPT__)
+-    add_compile_definitions(LMU_PP_USE___VA_OPT__)
+-else()
+-    cmake_push_check_state(RESET)
+-
+-    try_compile(HAS__VA_ARG__GNU_EXT
+-        SOURCE_FROM_CONTENT test_va_arg_gnu_ext.c [[
+-            #include <assert.h>
+-            #define SEQ() 2, 1, 0
+-            #define ARGN(_1, _2, N, ...) N
+-            #define COUNT_IMPL(_, ...) ARGN(__VA_ARGS__)
+-            #define COUNT(...) COUNT_IMPL(0, ##__VA_ARGS__, SEQ())
+-            int main(void) {
+-            _Static_assert(0 == COUNT());
+-            _Static_assert(1 == COUNT(foo));
+-            _Static_assert(2 == COUNT(foo, bar));
+-            return 0;
+-            }
+-        ]]
+-        C_STANDARD 11
+-        C_STANDARD_REQUIRED ON
+-        C_EXTENSIONS ON
+-        OUTPUT_VARIABLE OUTPUT
+-    )
+-
+-    cmake_pop_check_state()
+-
+-    if(NOT HAS__VA_ARG__GNU_EXT)
+-        message(FATAL_ERROR "${CMAKE_C_COMPILER} does not support __VA_ARG__ GNU extension.")
+-    else()
+-        set(CMAKE_C_EXTENSIONS ON)
+-    endif()
+-endif()
+-
+ if (${MESA_OPSYS_LINUX})
+     add_definitions(-DLMU_BOOL_IS_UINT8)
+ endif()
+@@ -152,19 +166,19 @@ endif ()
+ #    set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
+ #endif(CCACHE_FOUND)
+ 
+-INCLUDE (CheckIncludeFiles)
+-INCLUDE (CheckCSourceCompiles)
++include(CheckIncludeFiles)
++include(CheckCSourceCompiles)
+ 
+ if (${MESA_OPSYS_LINUX})
+-    CHECK_INCLUDE_FILES("endian.h" VTSS_HAS_ENDIAN_H)
+-    IF(NOT VTSS_HAS_ENDIAN_H)
++    check_include_files("endian.h" VTSS_HAS_ENDIAN_H)
++    if(NOT VTSS_HAS_ENDIAN_H)
+         message(FATAL_ERROR "endian.h was not found or did not compile. See CMakeFiles/CMakeError.log for more details.")
+-    ENDIF()
++    endif()
+ 
+-    CHECK_INCLUDE_FILES("asm/byteorder.h" VTSS_HAS_ASM_BYTEORDER_H)
+-    IF(NOT VTSS_HAS_ASM_BYTEORDER_H)
++    check_include_files("asm/byteorder.h" VTSS_HAS_ASM_BYTEORDER_H)
++    if(NOT VTSS_HAS_ASM_BYTEORDER_H)
+         message(FATAL_ERROR "asm/byteorder.h was not found or did not compile. See CMakeFiles/CMakeError.log for more details.")
+-    ENDIF()
++    endif()
+ endif ()
+ 
+ file(GLOB_RECURSE API_UNI_SRC  RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "sw-mesa/base/*.c")
+@@ -224,35 +238,35 @@ macro(MESA_CACHE)
+     endif()
+ endmacro(MESA_CACHE)
+ 
+-FOREACH(f ${API_UNI_HDR})
++foreach(f ${API_UNI_HDR})
+     # Add header to mesa processing
+     MESA_CACHE("include/${f}")
+-ENDFOREACH()
++endforeach()
+ 
+-FOREACH(f ${API_MESA_HDR})
++foreach(f ${API_MESA_HDR})
+     # Install all mesa headers
+     configure_file("sw-mesa/mesa/include/${f}" "${CMAKE_CURRENT_BINARY_DIR}/include_common/${f}" COPYONLY)
+     # Add header to mesa processing
+     MESA_CACHE("mesa/include/${f}")
+-ENDFOREACH()
++endforeach()
+ 
+-FOREACH(f ${API_MEBA_HDR})
++foreach(f ${API_MEBA_HDR})
+     configure_file("board-configs/include/${f}" "${CMAKE_CURRENT_BINARY_DIR}/include_common/${f}" COPYONLY)
+-ENDFOREACH()
++endforeach()
+ 
+-FOREACH(f ${API_MEPA_HDR})
++foreach(f ${API_MEPA_HDR})
+     # Add all mepa headers
+     configure_file("mepa/include/${f}" "${CMAKE_CURRENT_BINARY_DIR}/include_common/${f}" COPYONLY)
+-ENDFOREACH()
++endforeach()
+ 
+-FOREACH(f ${API_MEPA_VTSS_HDR})
++foreach(f ${API_MEPA_VTSS_HDR})
+     configure_file("mepa/vtss/include/${f}" "${CMAKE_CURRENT_BINARY_DIR}/include_common/${f}" COPYONLY)
+-ENDFOREACH()
++endforeach()
+ 
+-FOREACH(f ${API_ME_HDR})
++foreach(f ${API_ME_HDR})
+     # Add all me headers
+     configure_file("sw-mesa/me/include/${f}" "${CMAKE_CURRENT_BINARY_DIR}/include_common/${f}" COPYONLY)
+-ENDFOREACH()
++endforeach()
+ 
+ # Target to drive the mesa-cache processing
+ add_custom_target(mesa_cache DEPENDS ${API_MESA_CACHE_OUT})
+@@ -346,7 +360,7 @@ macro(API_TARGET)
+       target_compile_options(${A_LIB} PUBLIC ${DEFS}
+                                       PRIVATE -Wno-logical-op)
+ 
+-      if (${A_LIB})
++      if (${${A_LIB}})
+           message(STATUS "Adding ${A_LIB} (${A_CHIP}) MESA=${has_mesa} Defines: [${DEFS}]")
+           set_target_properties(${A_LIB} PROPERTIES EXCLUDE_FROM_ALL FALSE)
+       else()
+@@ -360,11 +374,14 @@ macro(API_TARGET)
+       add_library(${A_LIB}_static STATIC ${API_UNI_SRC} ${API_MESA_SRC})
+       target_link_libraries(${A_LIB}_static lm_utils)
+   endif ()
++  set_target_properties(${A_LIB}_static  PROPERTIES OUTPUT_NAME "${A_LIB}")
+ 
+-  target_compile_options(${A_LIB}_static PUBLIC ${DEFS}
+-	                                 PRIVATE -Wno-format-security -Wno-sign-compare -Wno-type-limits -Wno-implicit-fallthrough -Wno-array-parameter -Wno-enum-conversion -Wno-logical-op)
++  target_compile_options(${A_LIB}_static
++      PUBLIC ${DEFS}
++	  PRIVATE -Wno-format-security -Wno-sign-compare -Wno-type-limits -Wno-implicit-fallthrough -Wno-array-parameter -Wno-enum-conversion -Wno-logical-op
++  )
+   
+-  if (${A_LIB}_static)
++  if (${${A_LIB}_static})
+       message(STATUS "Adding ${A_LIB}_static (${A_CHIP}) MESA=${has_mesa} Defines: [${DEFS}]")
+       set_target_properties(${A_LIB}_static PROPERTIES EXCLUDE_FROM_ALL FALSE)
+   else()
+@@ -380,6 +397,8 @@ macro(API_TARGET)
+       COMMENT "Preprocessing options.h for ${A_LIB}"
+   )
+ 
++  install_targets(TARGETS ${A_LIB} ${A_LIB}_static)
++
+   list(APPEND LIST_OF_API_TARGETS ${A_LIB})
+ endmacro(API_TARGET)
+ 
+@@ -408,3 +427,51 @@ if (${BUILD_MEPA_DEMO})
+     endif()
+ endif()
+ 
++add_library(mepa_headers INTERFACE)
++target_sources(mepa_headers
++    PUBLIC
++        FILE_SET HEADERS
++        BASE_DIRS ${CMAKE_BINARY_DIR}
++        FILES ${CMAKE_BINARY_DIR}/include_common/
++)
++install(
++    TARGETS mepa_headers
++    EXPORT mepaTargets
++    FILE_SET HEADERS DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/mepa
++)
++
++configure_package_config_file(.cmake/mepaConfig.cmake.in 
++    ${PROJECT_BINARY_DIR}/mepaConfig.cmake
++    NO_SET_AND_CHECK_MACRO
++    PATH_VARS CMAKE_INSTALL_PREFIX
++    INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake"
++)
++write_basic_package_version_file("${PROJECT_BINARY_DIR}/mepaConfigVersion.cmake"
++    COMPATIBILITY AnyNewerVersion
++)
++
++install(
++    EXPORT mepaTargets
++    FILE "mepaTargets.cmake"
++    NAMESPACE mepa::
++    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/mepa"
++)
++
++install(
++    FILES 
++        ${PROJECT_BINARY_DIR}/mepaConfig.cmake
++        ${PROJECT_BINARY_DIR}/mepaConfigVersion.cmake
++    DESTINATION 
++        ${CMAKE_INSTALL_LIBDIR}/cmake/mepa
++)
++
++set(CPACK_VERBATIM_VARIABLES YES)
++set(CPACK_PACKAGE_NAME "mepa")
++set(CPACK_PACKAGE_VENDOR "Microchip Technology Inc.")
++string(JOIN "-" CPACK_SYSTEM_NAME ${CMAKE_SYSTEM_NAME} ${CMAKE_SYSTEM_PROCESSOR})
++set(CPACK_PACKAGE_DIRECTORY ${CMAKE_BINARY_DIR}/package)
++set(CPACK_PACKAGE_INSTALL_DIRECTORY ${CPACK_PACKAGE_NAME})
++set(CPACK_PACKAGE_CHECKSUM SHA256)
++set(CPACK_GENERATOR TGZ)
++
++include(CPack)
+diff --git a/mepa/.cmake/mepa-macros.cmake b/mepa/.cmake/mepa-macros.cmake
+index 1ed4ba5..8771080 100644
+--- a/mepa/.cmake/mepa-macros.cmake
++++ b/mepa/.cmake/mepa-macros.cmake
+@@ -8,10 +8,19 @@ macro(MEPA_DRV)
+     cmake_parse_arguments(A "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+ 
+     option(BUILD_${A_LIB_NAME} "Build the STATIC MEPA layer for ${A_LIB_NAME}" OFF)
+-    mark_as_advanced(BUILD_${A_LIB_NAME})
++    mark_as_advanced(${A_LIB_NAME})
++
++    list(JOIN A_INCL_PUB $<SEMICOLON> public_includes)
++    list(JOIN A_INCL_PRI $<SEMICOLON> private_includes)
+ 
+     add_library(${A_LIB_NAME} STATIC ${A_SRCS})
+-    target_include_directories(${A_LIB_NAME} PUBLIC ${A_INCL_PUB} PRIVATE ${A_INCL_PRI})
++    target_include_directories(${A_LIB_NAME} 
++        PUBLIC 
++            $<BUILD_INTERFACE:${public_includes}>
++            $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
++        PRIVATE
++            $<BUILD_INTERFACE:${private_includes}>
++    )
+ 
+     if (${MEPA_OPSYS_VELOCITYSP})
+         list(APPEND A_DEFS -DMEPA_OPSYS_VELOCITYSP=1)
+@@ -32,41 +41,24 @@ macro(MEPA_DRV)
+     else()
+         set_target_properties(${A_LIB_NAME} PROPERTIES EXCLUDE_FROM_ALL TRUE)
+     endif()
++
++    install_targets(TARGETS ${A_LIB_NAME})
+ endmacro()
+ 
+ macro(mepa_merge_static_libs)
+-    set(oneValueArgs   TARGET FILENAME)
++    set(oneValueArgs   TARGET)
+     set(multiValueArgs LIBRARIES)
+ 
+     cmake_parse_arguments(A "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+-
+-    file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${A_TARGET}.ar.in "CREATE ${A_FILENAME}\n" )
+-    foreach(e ${A_LIBRARIES})
+-        file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${A_TARGET}.ar.in
+-            "ADDLIB $<TARGET_FILE:${e}>\n")
++    add_library(${A_TARGET} STATIC)
++    foreach(dep ${A_LIBRARIES})
++        target_sources(${A_TARGET} PRIVATE $<TARGET_OBJECTS:${dep}>)
++        set_target_properties(${A_TARGET}
++            PROPERTIES
++                INCLUDE_DIRECTORIES $<TARGET_PROPERTY:${dep},INCLUDE_DIRECTORIES>
++                COMPILE_DEFINITIONS $<TARGET_PROPERTY:${dep},COMPILE_DEFINITIONS>
++        )
+     endforeach()
+-    file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${A_TARGET}.ar.in "SAVE\n")
+-    file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${A_TARGET}.ar.in "END\n")
+-    file(GENERATE
+-         OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${A_TARGET}.ar
+-         INPUT ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${A_TARGET}.ar.in)
+-
+-    add_custom_command(
+-        COMMAND ${CMAKE_AR} -Ms < ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${A_TARGET}.ar
+-        OUTPUT  ${A_FILENAME}
+-        DEPENDS ${A_LIBRARIES}
+-        COMMENT "Bundling ${A_TARGET}"
+-        VERBATIM
+-    )
+-
+-    add_custom_target(${A_TARGET}_target DEPENDS ${A_FILENAME})
+-    add_dependencies(${A_TARGET}_target ${A_LIBRARIES})
+-    add_library(${A_TARGET} STATIC IMPORTED GLOBAL)
+-    add_dependencies(${A_TARGET} ${A_TARGET}_target)
+-
+-    set_target_properties(${A_TARGET} PROPERTIES
+-        IMPORTED_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/${A_FILENAME}
+-    )
+ endmacro(mepa_merge_static_libs)
+ 
+ macro(MEPA_LIB)
+@@ -89,12 +81,12 @@ macro(MEPA_LIB)
+ 
+     target_compile_definitions(${lib_common} PRIVATE ${A_DEFS})
+     target_include_directories(${lib_common}
+-                               PUBLIC  ${MEPA_SOURCE_DIR}/../me/include
+-                                       ${MEPA_SOURCE_DIR}/include
+-                               PRIVATE ${MEPA_SOURCE_DIR}/common/src)
++                               PUBLIC 
++                                  $<BUILD_INTERFACE:${MEPA_SOURCE_DIR}/../me/include$<SEMICOLON>${MEPA_SOURCE_DIR}/include>
++                                  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
++                               PRIVATE $<BUILD_INTERFACE:${MEPA_SOURCE_DIR}/common/src>)
+ 
+     mepa_merge_static_libs(TARGET    ${A_LIB_NAME}
+-                           FILENAME  lib${A_LIB_NAME}.a
+                            LIBRARIES ${lib_common} ${A_DRVS})
+ 
+     if (${BUILD_ALL})
+@@ -107,10 +99,12 @@ macro(MEPA_LIB)
+ 
+     if (${BUILD_${A_LIB_NAME}})
+         message(STATUS "Build ${A_LIB_NAME} including ${A_DRVS}")
+-        set_target_properties(${A_LIB_NAME}_target PROPERTIES EXCLUDE_FROM_ALL FALSE)
++        set_target_properties(${A_LIB_NAME} ${lib_common} PROPERTIES EXCLUDE_FROM_ALL FALSE)
+     else()
+-        set_target_properties(${A_LIB_NAME}_target PROPERTIES EXCLUDE_FROM_ALL TRUE)
++        set_target_properties(${A_LIB_NAME} PROPERTIES EXCLUDE_FROM_ALL TRUE)
+     endif()
++
++    install_targets(TARGETS ${A_LIB_NAME} ${lib_common})
+ endmacro()
+ 
+ 
+diff --git a/mepa/CMakeLists.txt b/mepa/CMakeLists.txt
+index 8ec4b91..6636209 100644
+--- a/mepa/CMakeLists.txt
++++ b/mepa/CMakeLists.txt
+@@ -1,7 +1,9 @@
+ # Copyright (c) 2004-2021 Microchip Technology Inc. and its subsidiaries.
+ # SPDX-License-Identifier: MIT
+ 
+-project(MEPA)
++project(MEPA
++    LANGUAGES C ASM
++)
+ 
+ cmake_minimum_required(VERSION 3.15)
+ include(.cmake/mepa-macros.cmake)
+diff --git a/mepa/aqr/CMakeLists.txt b/mepa/aqr/CMakeLists.txt
+index 2c0dbf0..c77d06a 100644
+--- a/mepa/aqr/CMakeLists.txt
++++ b/mepa/aqr/CMakeLists.txt
+@@ -4,13 +4,13 @@ MEPA_DRV(LIB_NAME mepa_drv_aqr
+                   vtss_platform/AQ_PlatformRoutines.c
+                   AQR_API_2.6.1/src/AQ_API.c
+                   AQR_API_2.6.1/src/AQ_API_flash.c
+-         INCL_PUB ../../me/include ../include
+-         INCL_PRI AQR_API_2.6.1/include
+-                  AQR_API_2.6.1/include/registerMap
+-                  AQR_API_2.6.1/include/registerMap/APPIA
+-                  AQR_API_2.6.1/include/registerMap/EUR
+-                  AQR_API_2.6.1/include/registerMap/HHD
+-                  aqr_phy_fw)
++         INCL_PUB ${MEPA_SOURCE_DIR}/../me/include ${MEPA_SOURCE_DIR}/include
++         INCL_PRI ${CMAKE_CURRENT_SOURCE_DIR}/AQR_API_2.6.1/include
++                  ${CMAKE_CURRENT_SOURCE_DIR}/AQR_API_2.6.1/include/registerMap
++                  ${CMAKE_CURRENT_SOURCE_DIR}/AQR_API_2.6.1/include/registerMap/APPIA
++                  ${CMAKE_CURRENT_SOURCE_DIR}/AQR_API_2.6.1/include/registerMap/EUR
++                  ${CMAKE_CURRENT_SOURCE_DIR}/AQR_API_2.6.1/include/registerMap/HHD
++                  ${CMAKE_CURRENT_SOURCE_DIR}/aqr_phy_fw)
+ 
+ option(MEPA_aqr "Add AQR family support in libmeba" OFF)
+ if (${MEPA_aqr})
+diff --git a/mepa/dummy_phy/CMakeLists.txt b/mepa/dummy_phy/CMakeLists.txt
+index dba01b8..9efc803 100644
+--- a/mepa/dummy_phy/CMakeLists.txt
++++ b/mepa/dummy_phy/CMakeLists.txt
+@@ -1,7 +1,7 @@
+ 
+ MEPA_DRV(LIB_NAME mepa_drv_dummy_phy
+          SRCS     src/dummy_phy.c
+-         INCL_PUB ../../me/include ../include)
++         INCL_PUB ${MEPA_SOURCE_DIR}/../me/include ${MEPA_SOURCE_DIR}/include)
+ 
+ option(MEPA_dummy_phy "Add dummy sw phy in libmeba" OFF)
+ if (${MEPA_dummy_phy})
+diff --git a/mepa/intel/CMakeLists.txt b/mepa/intel/CMakeLists.txt
+index 59209ee..b1db67e 100644
+--- a/mepa/intel/CMakeLists.txt
++++ b/mepa/intel/CMakeLists.txt
+@@ -4,9 +4,9 @@ MEPA_DRV(LIB_NAME mepa_drv_intel
+                   GPY_API_v2.7.1.1/src/api/phy/gpy211_chip.c
+                   GPY_API_v2.7.1.1/src/api/phy/gpy211_phy.c
+          DEFS     -DP31G_B0=1 -DSAFE_C_LIB=0
+-         INCL_PUB ../../me/include ../include
+-         INCL_PRI GPY_API_v2.7.1.1/src/os/linux
+-                  GPY_API_v2.7.1.1/src/inc)
++         INCL_PUB ${MEPA_SOURCE_DIR}/../me/include ${MEPA_SOURCE_DIR}/include
++         INCL_PRI ${CMAKE_CURRENT_SOURCE_DIR}/GPY_API_v2.7.1.1/src/os/linux
++                  ${CMAKE_CURRENT_SOURCE_DIR}/GPY_API_v2.7.1.1/src/inc)
+ 
+ option(MEPA_gpy211 "Add GPY211 phy support in libmeba" OFF)
+ if (${MEPA_gpy211})
+diff --git a/mepa/ksz9031/CMakeLists.txt b/mepa/ksz9031/CMakeLists.txt
+index afafdcb..9116f71 100644
+--- a/mepa/ksz9031/CMakeLists.txt
++++ b/mepa/ksz9031/CMakeLists.txt
+@@ -1,8 +1,8 @@
+ 
+ MEPA_DRV(LIB_NAME mepa_drv_ksz9031
+          SRCS     phy_driver.c
+-         INCL_PUB ../../me/include ../include
+-         INCL_PRI .)
++         INCL_PUB ${MEPA_SOURCE_DIR}/../me/include ${MEPA_SOURCE_DIR}/include
++)
+ 
+ option(MEPA_ksz9031 "Add KSZ9031 phy support in libmeba" OFF)
+ if (${MEPA_ksz9031})
+diff --git a/mepa/microchip/lan80xx/CMakeLists.txt b/mepa/microchip/lan80xx/CMakeLists.txt
+index 6755bff..c987c06 100644
+--- a/mepa/microchip/lan80xx/CMakeLists.txt
++++ b/mepa/microchip/lan80xx/CMakeLists.txt
+@@ -22,15 +22,15 @@ endif()
+ MEPA_DRV(LIB_NAME mepa_drv_lan80xx_ts
+     DEFS ${lan80xx_ts_defs} ${sha256_defs}
+     SRCS  ${src_lan80xx} ${src_sha256}
+-    INCL_PUB ../../../sw-mesa/me/include ../../../me/include ../../include ../../vtss/include
+-    INCL_PRI lan80xx ./src/regs ./include/microchip ./src)
++    INCL_PUB ${MEPA_SOURCE_DIR}/../sw-mesa/me/include ${MEPA_SOURCE_DIR}/../me/include ${MEPA_SOURCE_DIR}/include ${MEPA_SOURCE_DIR}/vtss/include
++    INCL_PRI ${CMAKE_CURRENT_SOURCE_DIR}/src/regs ${CMAKE_CURRENT_SOURCE_DIR}/include/microchip ${CMAKE_CURRENT_SOURCE_DIR}/src)
+ 
+ 
+ MEPA_DRV(LIB_NAME mepa_drv_lan80xx_ts_msec
+     DEFS ${lan80xx_ts_msec_defs} ${sha256_defs}
+     SRCS  ${src_lan80xx} ${src_sha256}
+-    INCL_PUB ../../../sw-mesa/me/include ../../../me/include ../../include ../../vtss/include
+-    INCL_PRI lan80xx ./src/regs ./include/microchip ./src)
++    INCL_PUB ${MEPA_SOURCE_DIR}/../sw-mesa/me/include ${MEPA_SOURCE_DIR}/../me/include ${MEPA_SOURCE_DIR}/include ${MEPA_SOURCE_DIR}/vtss/include
++    INCL_PRI ${CMAKE_CURRENT_SOURCE_DIR}/src/regs ${CMAKE_CURRENT_SOURCE_DIR}/include/microchip ${CMAKE_CURRENT_SOURCE_DIR}/src)
+ 
+ option(MEPA_lan80xx_ts "Add lan80xx support in libmeba" OFF)
+ if (${MEPA_lan80xx_ts})
+diff --git a/mepa/microchip/lan867x/CMakeLists.txt b/mepa/microchip/lan867x/CMakeLists.txt
+index 8a9c230..1320768 100644
+--- a/mepa/microchip/lan867x/CMakeLists.txt
++++ b/mepa/microchip/lan867x/CMakeLists.txt
+@@ -14,8 +14,8 @@ endif()
+ MEPA_DRV(LIB_NAME mepa_drv_lan867x
+          SRCS     src/lan867x.c src/lan867x_private.c src/lan867x_t1s.c
+ 		 DEFS	  ${MEPA_LAN867X_ADD_DEFS}
+-         INCL_PUB ../../../me/include ../../include
+-         INCL_PRI ./src)
++         INCL_PUB ${MEPA_SOURCE_DIR}/../me/include ${MEPA_SOURCE_DIR}/include
++         INCL_PRI ${CMAKE_CURRENT_SOURCE_DIR}/src)
+ 
+ option(MEPA_lan867x "Add LAN867X support in libmeba" OFF)
+ if (${MEPA_lan867x})
+diff --git a/mepa/microchip/lan8770/CMakeLists.txt b/mepa/microchip/lan8770/CMakeLists.txt
+index 9518e05..56ade31 100644
+--- a/mepa/microchip/lan8770/CMakeLists.txt
++++ b/mepa/microchip/lan8770/CMakeLists.txt
+@@ -5,8 +5,8 @@ MEPA_DRV(LIB_NAME mepa_drv_lan8770
+          SRCS     src/lan8770.c
+                   src/lan8770_private.c
+                   src/lan8770_tc10.c
+-         INCL_PUB ../../../me/include ../../include
+-         INCL_PRI lan8770)
++         INCL_PUB ${MEPA_SOURCE_DIR}/../me/include ${MEPA_SOURCE_DIR}/include
++)
+ 
+ option(MEPA_lan8770 "Add LAN8770 support in libmeba" OFF)
+ if (${MEPA_lan8770})
+diff --git a/mepa/microchip/lan8814/CMakeLists.txt b/mepa/microchip/lan8814/CMakeLists.txt
+index fe690c8..95b1a23 100644
+--- a/mepa/microchip/lan8814/CMakeLists.txt
++++ b/mepa/microchip/lan8814/CMakeLists.txt
+@@ -1,16 +1,15 @@
+-
+ MEPA_DRV(LIB_NAME mepa_drv_lan8814
+          SRCS     src/lan8814.c
+                   src/lan8814_ts.c
+-         INCL_PUB ../../../me/include ../../include include
+-         INCL_PRI lan8814)
++         INCL_PUB ${MEPA_SOURCE_DIR}/../me/include ${MEPA_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/include
++)
+ 
+ MEPA_DRV(LIB_NAME mepa_drv_lan8814_light
+          DEFS     -DMEPA_LAN8814_LIGHT=1
+          SRCS     src/lan8814.c
+                   src/lan8814_ts.c
+-         INCL_PUB ../../../me/include ../../include include
+-         INCL_PRI lan8814)
++         INCL_PUB ${MEPA_SOURCE_DIR}/../me/include ${MEPA_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/include
++)
+ 
+ option(MEPA_lan8814 "Add LAN8814 support in libmeba" OFF)
+ if (${MEPA_lan8814})
+diff --git a/mepa/microchip/lan884x/CMakeLists.txt b/mepa/microchip/lan884x/CMakeLists.txt
+index b42fe97..20a1920 100644
+--- a/mepa/microchip/lan884x/CMakeLists.txt
++++ b/mepa/microchip/lan884x/CMakeLists.txt
+@@ -1,8 +1,8 @@
+ 
+ MEPA_DRV(LIB_NAME mepa_drv_lan884x
+          SRCS     src/lan884x.c
+-         INCL_PUB ../../../me/include ../../include
+-         INCL_PRI lan884x)
++         INCL_PUB ${MEPA_SOURCE_DIR}/../me/include ${MEPA_SOURCE_DIR}/include
++)
+ 
+ option(MEPA_lan884x "Add LAN884x support in libmeba" OFF)
+ if (${MEPA_lan884x})
+diff --git a/mepa/microchip/lan887x/CMakeLists.txt b/mepa/microchip/lan887x/CMakeLists.txt
+index 9d889fa..069adf5 100644
+--- a/mepa/microchip/lan887x/CMakeLists.txt
++++ b/mepa/microchip/lan887x/CMakeLists.txt
+@@ -16,8 +16,9 @@ MEPA_DRV(LIB_NAME mepa_drv_lan887x
+                   src/lan887x.c
+                   src/lan887x_tc10.c
+ 		 DEFS	  ${MEPA_lan887x_custom_defs}
+-         INCL_PUB ../../../me/include ../../include ../common/include
+-         INCL_PRI lan887x)
++         INCL_PUB ${MEPA_SOURCE_DIR}/../me/include ${MEPA_SOURCE_DIR}/include ${MEPA_SOURCE_DIR}/common/include
++                  ${MEPA_SOURCE_DIR}/microchip/common/include
++)
+ 
+ option(MEPA_lan887x "Add LAN887X support in libmeba" OFF)
+ if (${MEPA_lan887x})
+diff --git a/mepa/microchip/lan8x8x/CMakeLists.txt b/mepa/microchip/lan8x8x/CMakeLists.txt
+index d1e62e9..61ebb4a 100644
+--- a/mepa/microchip/lan8x8x/CMakeLists.txt
++++ b/mepa/microchip/lan8x8x/CMakeLists.txt
+@@ -6,10 +6,10 @@
+ ##
+ set(src_lan8x8x         ../common/src/phy_lib.c
+                         src/lan8x8x.c)
+-set(inc_mepa            ../../../me/include
+-                        ../../include
+-                        ../common/include)
+-set(inc_lan8x8x         lan8x8x)
++set(inc_mepa            ${MEPA_SOURCE_DIR}/../me/include
++                        ${MEPA_SOURCE_DIR}/include
++                        ${CMAKE_CURRENT_SOURCE_DIR}/../common/include)
++set(inc_lan8x8x         ${CMAKE_CURRENT_SOURCE_DIR}/src)
+ 
+ ##
+ ## setup feature flags
+diff --git a/mepa/vtss/CMakeLists.txt b/mepa/vtss/CMakeLists.txt
+index 602b239..f346d46 100644
+--- a/mepa/vtss/CMakeLists.txt
++++ b/mepa/vtss/CMakeLists.txt
+@@ -1,6 +1,6 @@
+ 
+ 
+-set(inc_mepa ../../me/include ../include)
++set(inc_mepa ${MEPA_SOURCE_DIR}/../me/include ${MEPA_SOURCE_DIR}/include)
+ 
+ set(src_vtss src/vtss.c
+              src/vtss_ts.c
+@@ -32,7 +32,7 @@ set(src_vtss src/vtss.c
+              src/ts/vtss_phy_ts_api.c
+              src/ts/vtss_phy_ewis.c
+              src/ts/vtss_phy_ts_util.c)
+-set(inc_vtss include)
++set(inc_vtss ${CMAKE_CURRENT_SOURCE_DIR}/include)
+ 
+ MEPA_DRV(LIB_NAME mepa_drv_vtss
+          SRCS     ${src_vtss}
+diff --git a/mepa_demo/CMakeLists.txt b/mepa_demo/CMakeLists.txt
+index 173b867..0f34414 100644
+--- a/mepa_demo/CMakeLists.txt
++++ b/mepa_demo/CMakeLists.txt
+@@ -29,6 +29,10 @@ target_link_libraries(init PUBLIC "-static")
+ # TODO, delete these once we do not need them any more
+ add_executable(fa_board_fpga_init fa_board_fpga_init.c)
+ 
++install_targets(
++    TARGETS base64decode cli er spi_reg_read init fa_board_fpga_init
++)
++
+ include_directories(../board-configs/include)
+ include_directories(../mepa/vtss/include)
+ include_directories(../mepa/vtss/src)
+@@ -151,8 +155,9 @@ macro(APP_TARGET)
+     else()
+         set_target_properties(${A_NAME} PROPERTIES EXCLUDE_FROM_ALL TRUE)
+     endif()
+-endmacro()
+ 
++    install_targets(TARGETS ${A_NAME})
++endmacro()
+ 
+ 
+ macro(IMG_TARGET)
+-- 
+2.51.0
+

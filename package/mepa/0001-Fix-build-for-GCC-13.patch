@@ -1,9 +1,16 @@
+From b6db2af8c92526b3420f4e3388e05504ab9ff374 Mon Sep 17 00:00:00 2001
+From: Vincent Cruz <mooz@blockos.org>
+Date: Fri, 20 Feb 2026 17:28:05 +0100
+Subject: [PATCH] Fix build for GCC > 13
+
 Force the detection of __VA_OPT__ or __VA_ARG__ GNU extension so that
 LMU_PP_VA_ARGS_NARG returns 0 when called without any argument.
 
-Upstream: [wip]
 Signed-off-by: Vincent Cruz <mooz@blockos.org>
 ---
+ .cmake/flags.cmake |  2 +-
+ CMakeLists.txt     | 49 ++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 50 insertions(+), 1 deletion(-)
 
 diff --git a/.cmake/flags.cmake b/.cmake/flags.cmake
 index 8d2823d..56dd02a 100644
