@@ -1,0 +1,1 @@
+source "$BR2_EXTERNAL_MEPA_PATH/package/mepa/Config.in"

@@ -1,0 +1,191 @@
+config BR2_PACKAGE_MEPA_ARCH_SUPPORTS
+	bool
+	default y
+	depends on !BR2_m68k
+
+config BR2_PACKAGE_MEPA
+	bool "sw_mepa"
+	depends on BR2_PACKAGE_MEPA_ARCH_SUPPORTS
+	depends on BR2_TOOLCHAIN_GCC_AT_LEAST_13
+	depends on BR2_INSTALL_LIBSTDCPP
+	depends on !BR2_STATIC_LIBS
+	select BR2_PACKAGE_HOST_RUBY
+	help
+	  MEPA (Microchip Ethernet PHY API) is a C library supporting
+	  the Microchip product line of Ethernet PHYs.
+
+	  https://github.com/microchip-ung/sw-mepa
+
+comment "MEPA needs a toolchain w/ C++, gcc >= 13, dynamic library"
+	depends on !BR2_INSTALL_LIBSTDCPP \
+	  || !BR2_TOOLCHAIN_GCC_AT_LEAST_13 \
+	  || BR2_STATIC_LIBS
+
+if BR2_PACKAGE_MEPA
+
+config BR2_PACKAGE_MEPA_LAN966x
+	bool "966X chip support"
+	default y
+	help
+	  Add support for 966X chip
+
+config BR2_PACKAGE_MEPA_VSC7558
+	bool "7558TSN chip support"
+	default y
+	help
+	  Add support for 7558TSN chip
+
+config BR2_PACKAGE_MEPA_EDSX
+	bool "EDS-X layer support"
+	default y
+	help
+	  Add EDS-X MEPA layer
+
+config BR2_PACKAGE_MEPA_EDS2
+	bool "EDS2 layer support"
+	default y
+	help
+	  Add EDS2 MEPA layer
+
+config BR2_PACKAGE_MEPA_AQR
+	bool "AQR family support"
+	help
+	  Add AQR MEPA layer
+
+config BR2_PACKAGE_MEPA_INTEL
+	bool "GPY211 family support"
+	help
+	  Add GPY211 MEPA layer
+
+config BR2_PACKAGE_MEPA_KSZ9031
+	bool "KSZ9031 support"
+	help
+	  Add KSZ9031 MEPA layer
+
+config BR2_PACKAGE_MEPA_LAN80XX_TS
+	bool "LAN80XX support"
+	help
+	  Add LAN80XX MEPA layer
+
+config BR2_PACKAGE_MEPA_LAN80XX_DFU_PROFILING
+	bool "DFU profiling"
+	depends on BR2_PACKAGE_MEPA_LAN80XX_TS
+	help
+	  Add DFU profiling support for LAN80XX layer
+
+config BR2_PACKAGE_MEPA_LAN80XX_TS_MSEC
+	bool "LAN80XX with MSEC support"
+	help
+	  Add LAN80XX with MSEC MEPA layer
+
+config BR2_PACKAGE_MEPA_LAN867X
+	bool "LAN867X support"
+	help
+	  Add LAN867X MEPA layer
+
+config BR2_PACKAGE_MEPA_LAN867X_PHY_MAX
+	int "Max LAN867X phys"
+	default 4
+	depends on BR2_PACKAGE_MEPA_LAN867X
+	help
+	  Maximum number of supported LAN867X phys
+
+config BR2_PACKAGE_MEPA_LAN867X_STATIC_MEM
+	bool "LAN867X static memory allocations"
+	depends on BR2_PACKAGE_MEPA_LAN867X
+	help
+	  Statically allocated LAN867X module
+
+config BR2_PACKAGE_MEPA_LAN887X
+	bool "LAN887X support"
+	help
+	  Add LAN887X MEPA layer
+
+config BR2_PACKAGE_MEPA_LAN887X_PHY_MAX
+	int "Max LAN887X phys"
+	default 4
+	depends on BR2_PACKAGE_MEPA_LAN887X
+	help
+	  Maximum number of supported LAN887X phys
+
+config BR2_PACKAGE_MEPA_LAN887X_STATIC_MEM
+	bool "LAN887X static memory allocations"
+	depends on BR2_PACKAGE_MEPA_LAN887X
+	help
+	  Statically allocated LAN887X module
+
+config BR2_PACKAGE_MEPA_LAN8770
+	bool "LAN8770 support"
+	help
+	  Add LAN8770 MEPA layuer
+
+config BR2_PACKAGE_MEPA_LAN8814
+	bool "LAN8814 support"
+	help
+	  Add LAN8814 MEPA layer
+
+config BR2_PACKAGE_MEPA_LAN8814_LIGHT
+	bool "LAN8814 light support"
+	help
+	  Add LAN8814 light MEPA layer
+
+config BR2_PACKAGE_MEPA_LAN884x
+	bool "LAN884x support"
+	help
+	  Add LAN884x MEPA layer
+
+config BR2_PACKAGE_MEPA_LAN8X8X
+	bool "LAN8X8X support"
+	help
+	  Add LAN8X8X MEPA layer
+
+config BR2_PACKAGE_MEPA_LAN8X8X_PHY_MAX
+	int "Max LAN8X8X phys"
+	default 4
+	depends on BR2_PACKAGE_MEPA_LAN8X8X
+	help
+	  Maximum number of supported LAN8X8X phys
+
+config BR2_PACKAGE_MEPA_LAN8X8X_STATIC_MEM
+	bool "LAN8X8X static memory allocations"
+	depends on BR2_PACKAGE_MEPA_LAN8X8X
+	help
+	  Statically allocated LAN8X8X module
+
+config BR2_PACKAGE_MEPA_VTSS
+	bool "VTSS family support"
+	help
+	  "Add VTSS family support in libmeba"
+
+if BR2_PACKAGE_MEPA_VTSS
+
+config BR2_PACKAGE_MEPA_VTSS_10G
+	bool "10G support"
+	help
+	  "Add 10G support"
+
+config BR2_PACKAGE_MEPA_VTSS_1G
+	bool "1G support"
+	help
+	  "Add 1G support"
+
+config BR2_PACKAGE_MEPA_VTSS_CNT
+	int "Max ports count"
+	default 64 if !BR2_PACKAGE_MEPA_VSC7558
+	default 57 if BR2_PACKAGE_MEPA_VSC7558
+	help
+	  "Maximum number of supported ports"
+
+config BR2_PACKAGE_MEPA_VTSS_MACSEC
+	bool "MACsec support"
+	help
+	  "Add MACsec support"
+
+config BR2_PACKAGE_MEPA_VTSS_TS
+	bool "time-stamp support"
+	help
+	  "Add time-stamp support"
+
+endif
+
+endif
