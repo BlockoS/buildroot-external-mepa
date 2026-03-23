@@ -1,0 +1,105 @@
+From 2207c05ce9caf3e9806ccfb6b72bd29ec475a10b Mon Sep 17 00:00:00 2001
+From: Vincent Cruz <mooz@blockos.org>
+Date: Thu, 19 Mar 2026 16:30:08 +0100
+Subject: [PATCH 5/6] Add package configure file generation.
+
+Signed-off-by: Vincent Cruz <mooz@blockos.org>
+---
+ .cmake/common.cmake        | 17 +++++++++++++++++
+ .cmake/mepaConfig.cmake.in |  5 +++++
+ CMakeLists.txt             | 29 ++++++++++++++++++++++++++++-
+ 3 files changed, 50 insertions(+), 1 deletion(-)
+ create mode 100644 .cmake/mepaConfig.cmake.in
+
+diff --git a/.cmake/common.cmake b/.cmake/common.cmake
+index df07572..eb004b8 100644
+--- a/.cmake/common.cmake
++++ b/.cmake/common.cmake
+@@ -17,9 +17,26 @@ macro(install_targets)
+     cmake_parse_arguments(_args "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+ 
+     foreach(_tgt ${_args_TARGETS})
++      if(NOT TARGET ${_tgt})
++        message(FATAL_ERROR "Unknown target ${_tgt}")
++      endif()
++
++      get_target_property(_skip ${_tgt} EXCLUDE_FROM_ALL)
++      if(${_skip})
++        continue()
++      endif()
++
++      export(
++        TARGETS ${_tgt}
++        NAMESPACE "mepa::"
++        APPEND
++        FILE ${PROJECT_BINARY_DIR}/mepa.cmake
++      )
+       set(_tgt_path $<PATH:RELATIVE_PATH,$<TARGET_FILE_DIR:${_tgt}>,${CMAKE_BINARY_DIR}>)
++
+       install(
+           TARGETS ${_tgt}
++          EXPORT mepaTargets
+           RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}/${_tgt_path}
+           PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/mepa
+           INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/mepa
+diff --git a/.cmake/mepaConfig.cmake.in b/.cmake/mepaConfig.cmake.in
+new file mode 100644
+index 0000000..91d9a9f
+--- /dev/null
++++ b/.cmake/mepaConfig.cmake.in
+@@ -0,0 +1,5 @@
++@PACKAGE_INIT@
++
++include ( "${CMAKE_CURRENT_LIST_DIR}/mepaTargets.cmake" )
++
++check_required_components(mepa)
+\ No newline at end of file
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 7bbf5c2..785ba43 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -35,6 +35,7 @@ mark_as_advanced(BUILD_MEPA_DEMO MESA_PRE_AG BUILD_DOXYGEN)
+ include(.cmake/doxygen.cmake)
+ 
+ include(GNUInstallDirs)
++include(CMakePackageConfigHelpers)
+ 
+ add_subdirectory(mepa)
+ 
+@@ -433,5 +434,31 @@ target_sources(mepa_headers
+ )
+ install(
+     TARGETS mepa_headers
++    EXPORT mepaTargets
+     FILE_SET HEADERS DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/mepa
+-)
+\ No newline at end of file
++)
++
++configure_package_config_file(.cmake/mepaConfig.cmake.in
++    ${PROJECT_BINARY_DIR}/mepaConfig.cmake
++    NO_SET_AND_CHECK_MACRO
++    PATH_VARS CMAKE_INSTALL_PREFIX
++    INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake"
++)
++write_basic_package_version_file("${PROJECT_BINARY_DIR}/mepaConfigVersion.cmake"
++    COMPATIBILITY AnyNewerVersion
++)
++
++install(
++    EXPORT mepaTargets
++    FILE "mepaTargets.cmake"
++    NAMESPACE mepa::
++    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/mepa"
++)
++
++install(
++    FILES
++        ${PROJECT_BINARY_DIR}/mepaConfig.cmake
++        ${PROJECT_BINARY_DIR}/mepaConfigVersion.cmake
++    DESTINATION
++        ${CMAKE_INSTALL_LIBDIR}/cmake/mepa
++)
+-- 
+2.51.0
+
