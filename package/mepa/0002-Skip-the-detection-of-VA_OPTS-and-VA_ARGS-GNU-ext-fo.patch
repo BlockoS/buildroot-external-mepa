@@ -1,0 +1,38 @@
+From 174aa79ba97a3a908d95e182a923d29e64d6b44f Mon Sep 17 00:00:00 2001
+From: Vincent Cruz <mooz@blockos.org>
+Date: Thu, 19 Mar 2026 14:05:13 +0100
+Subject: [PATCH 2/6] Skip the detection of VA_OPTS and VA_ARGS GNU ext for
+ clang and gcc 13.
+
+Signed-off-by: Vincent Cruz <mooz@blockos.org>
+---
+ CMakeLists.txt | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 4d62b75..1d2566e 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -79,6 +79,10 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+ endif ()
+ 
+ # Detect wether the compiler either support __VA_OPT__ or the GNU extension for __VA_ARGS__
++# (this test is skipped for Clang and GCC 13)
++if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang" AND
++   NOT (CMAKE_C_COMPILER_ID MATCHES "GNU" AND  CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL 13 AND CMAKE_C_COMPILER_VERSION VERSION_LESS 14))
++
+ include(CheckCSourceCompiles)
+ include(CMakePushCheckState)
+ 
+@@ -125,6 +129,8 @@ else()
+     endif()
+ endif()
+ 
++endif()
++
+ if (${MESA_OPSYS_LINUX})
+     add_definitions(-DLMU_BOOL_IS_UINT8)
+ endif()
+-- 
+2.51.0
+

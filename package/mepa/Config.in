@@ -157,32 +157,67 @@ config BR2_PACKAGE_MEPA_VTSS
 
 if BR2_PACKAGE_MEPA_VTSS
 
+config BR2_PACKAGE_MEPA_VTSS_1G
+	bool "base library"
+	help
+	  "VTSS driver library with 1G suppor"
+
 config BR2_PACKAGE_MEPA_VTSS_10G
 	bool "10G support"
 	help
+	  "VTSS driver library with only 10G support"
+
+config BR2_PACKAGE_MEPA_VTSS_TS
+	bool "timestamping support"
+	help
+	  "VTS driver library with timestamping support"
+
+config BR2_PACKAGE_MEPA_VTSS_10G_TS
+	bool "10G support with timestamping"
+	help
+	  "VTS driver library with 10G and timestamping support"
+
+config BR2_PACKAGE_MEPA_VTSS_10G_MACSEC_TS
+	bool "10G support with MACsec and timestamping"
+	help
+	  "VTS driver library with 10G, MACsec and timestamping support"
+
+config BR2_PACKAGE_MEPA_VTSS_CUSTOM
+	bool "Custom library"
+	help
+	  "VTS driver library (custom)"
+
+if BR2_PACKAGE_MEPA_VTSS_CUSTOM
+
+config BR2_PACKAGE_MEPA_VTSS_CUSTOM_10G
+	bool "10G support"
+	select BR2_PACKAGE_MEPA_VTSS_CUSTOM_1G
+	help
 	  "Add 10G support"
 
-config BR2_PACKAGE_MEPA_VTSS_1G
+config BR2_PACKAGE_MEPA_VTSS_CUSTOM_1G
 	bool "1G support"
 	help
 	  "Add 1G support"
 
-config BR2_PACKAGE_MEPA_VTSS_CNT
+config BR2_PACKAGE_MEPA_VTSS_CUSTOM_CNT
 	int "Max ports count"
 	default 64 if !BR2_PACKAGE_MEPA_VSC7558
 	default 57 if BR2_PACKAGE_MEPA_VSC7558
 	help
 	  "Maximum number of supported ports"
 
-config BR2_PACKAGE_MEPA_VTSS_MACSEC
+config BR2_PACKAGE_MEPA_VTSS_CUSTOM_MACSEC
 	bool "MACsec support"
 	help
 	  "Add MACsec support"
 
-config BR2_PACKAGE_MEPA_VTSS_TS
+config BR2_PACKAGE_MEPA_VTSS_CUSTOM_TS
 	bool "time-stamp support"
 	help
 	  "Add time-stamp support"
+
+endif
 
 endif
 
