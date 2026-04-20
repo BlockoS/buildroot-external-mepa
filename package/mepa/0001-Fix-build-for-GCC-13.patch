@@ -1,7 +1,7 @@
-From b6db2af8c92526b3420f4e3388e05504ab9ff374 Mon Sep 17 00:00:00 2001
+From ae4dc7f277bd341faba18cd386ab59de67313455 Mon Sep 17 00:00:00 2001
 From: Vincent Cruz <mooz@blockos.org>
 Date: Fri, 20 Feb 2026 17:28:05 +0100
-Subject: [PATCH 1/6] Fix build for GCC > 13
+Subject: [PATCH 01/10] Fix build for GCC > 13
 
 Force the detection of __VA_OPT__ or __VA_ARG__ GNU extension so that
 LMU_PP_VA_ARGS_NARG returns 0 when called without any argument.

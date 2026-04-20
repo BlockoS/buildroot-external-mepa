@@ -1,7 +1,7 @@
-From 01c6141f91050e901aa5658bf4a586f77d372295 Mon Sep 17 00:00:00 2001
+From f842f449bf48e6e90de789f27bdd7ca6e93f217f Mon Sep 17 00:00:00 2001
 From: Vincent Cruz <mooz@blockos.org>
 Date: Fri, 20 Mar 2026 16:33:08 +0100
-Subject: [PATCH 6/6] Install mepa common source code.
+Subject: [PATCH 07/10] Install mepa common source code.
 
 Install mepa/common to <install_dir>/include/mepa.
 Add a function in CMake package script to create custom mepa libraries.
@@ -9,9 +9,9 @@ Driver targets now embedded MEPA_HAS_<drv> compile definition.
 
 Signed-off-by: Vincent Cruz <mooz@blockos.org>
 ---
- .cmake/mepaConfig.cmake.in            | 31 +++++++++++++++++++-
+ .cmake/mepaConfig.cmake.in            | 31 +++++++++++++++++-
  mepa/.cmake/mepa-macros.cmake         |  2 +-
- mepa/CMakeLists.txt                   | 41 +++++++++------------------
+ mepa/CMakeLists.txt                   | 47 ++++++++-------------------
  mepa/aqr/CMakeLists.txt               |  1 +
  mepa/dummy_phy/CMakeLists.txt         |  1 +
  mepa/intel/CMakeLists.txt             |  2 +-
@@ -22,8 +22,8 @@ Signed-off-by: Vincent Cruz <mooz@blockos.org>
  mepa/microchip/lan8814/CMakeLists.txt |  3 +-
  mepa/microchip/lan884x/CMakeLists.txt |  1 +
  mepa/microchip/lan887x/CMakeLists.txt |  2 +-
- mepa/vtss/CMakeLists.txt              | 11 +++----
- 14 files changed, 62 insertions(+), 43 deletions(-)
+ mepa/vtss/CMakeLists.txt              | 11 ++++---
+ 14 files changed, 63 insertions(+), 48 deletions(-)
 
 diff --git a/.cmake/mepaConfig.cmake.in b/.cmake/mepaConfig.cmake.in
 index 91d9a9f..6786c0c 100644
@@ -80,10 +80,10 @@ index b42cb10..cf7f582 100644
      target_include_directories(${lib_common}
                                 PUBLIC 
 diff --git a/mepa/CMakeLists.txt b/mepa/CMakeLists.txt
-index 6636209..6400f06 100644
+index bf1db50..6400f06 100644
 --- a/mepa/CMakeLists.txt
 +++ b/mepa/CMakeLists.txt
-@@ -43,81 +43,66 @@ MEPA_LIB(LIB_NAME mepa
+@@ -43,85 +43,66 @@ MEPA_LIB(LIB_NAME mepa
  ## and other higher layer of applications                                    ##
  ###############################################################################
  MEPA_LIB(LIB_NAME mepa_caracal ADVANCED
@@ -96,7 +96,7 @@ index 6636209..6400f06 100644
  
  MEPA_LIB(LIB_NAME mepa_jr2 ADVANCED
 -         DEFS     -DMEPA_HAS_VTSS       -DMEPA_HAS_AQR  -DMEPA_HAS_GPY2211
--         DRVS     mepa_drv_vtss_10g_ts  mepa_drv_aqr    mepa_drv_intel)
+-         DRVS     mepa_drv_vtss_10g_ts         mepa_drv_aqr    mepa_drv_intel)
 +         DRVS     mepa_drv_vtss_10g_ts mepa_drv_aqr mepa_drv_intel)
  
  MEPA_LIB(LIB_NAME mepa_jr2_macsec ADVANCED
@@ -118,7 +118,8 @@ index 6636209..6400f06 100644
  
  MEPA_LIB(LIB_NAME mepa_ocelot ADVANCED
 -         DEFS     -DMEPA_HAS_VTSS  -DMEPA_HAS_LAN8814
-          DRVS     mepa_drv_vtss_ts mepa_drv_lan8814)
+-         DRVS     mepa_drv_vtss_ts            mepa_drv_lan8814)
++         DRVS     mepa_drv_vtss_ts mepa_drv_lan8814)
  
  MEPA_LIB(LIB_NAME mepa_ocelot_macsec ADVANCED
 -         DEFS     -DMEPA_HAS_VTSS  -DMEPA_HAS_LAN8814
@@ -130,12 +131,12 @@ index 6636209..6400f06 100644
  
  MEPA_LIB(LIB_NAME mepa_sparx5 ADVANCED
 -         DEFS     -DMEPA_HAS_VTSS       -DMEPA_HAS_AQR  -DMEPA_HAS_GPY2211  -DMEPA_HAS_LAN8814 -DMEPA_HAS_LAN884x
--         DRVS     mepa_drv_vtss_10g_ts  mepa_drv_aqr    mepa_drv_intel      mepa_drv_lan8814    mepa_drv_lan884x)
+-         DRVS     mepa_drv_vtss_10g_ts        mepa_drv_aqr    mepa_drv_intel      mepa_drv_lan8814    mepa_drv_lan884x)
 +         DRVS     mepa_drv_vtss_10g_ts mepa_drv_aqr mepa_drv_intel mepa_drv_lan8814 mepa_drv_lan884x)
  
  MEPA_LIB(LIB_NAME mepa_sparx5_macsec ADVANCED
--         DEFS     -DMEPA_HAS_VTSS       -DMEPA_HAS_AQR  -DMEPA_HAS_GPY2211  -DMEPA_HAS_LAN8814
--         DRVS     mepa_drv_vtss_10g_macsec_ts  mepa_drv_aqr    mepa_drv_intel      mepa_drv_lan8814)
+-         DEFS     -DMEPA_HAS_VTSS       -DMEPA_HAS_AQR  -DMEPA_HAS_GPY2211  -DMEPA_HAS_LAN8814 -DMEPA_HAS_LAN884x
+-         DRVS     mepa_drv_vtss_10g_macsec_ts mepa_drv_aqr    mepa_drv_intel      mepa_drv_lan8814    mepa_drv_lan884x)
 +         DRVS     mepa_drv_vtss_10g_macsec_ts mepa_drv_aqr mepa_drv_intel mepa_drv_lan8814)
  
  MEPA_LIB(LIB_NAME mepa_sparx5_bringup ADVANCED
@@ -149,7 +150,11 @@ index 6636209..6400f06 100644
  
  MEPA_LIB(LIB_NAME mepa_lan966x ADVANCED
 -         DEFS     -DMEPA_HAS_VTSS  -DMEPA_HAS_KSZ9031  -D MEPA_HAS_LAN8814 -DMEPA_HAS_LAN884x
--         DRVS     mepa_drv_vtss    mepa_drv_ksz9031    mepa_drv_lan8814   mepa_drv_lan884x)
+-         DRVS     mepa_drv_vtss               mepa_drv_ksz9031    mepa_drv_lan8814   mepa_drv_lan884x)
+-
+-MEPA_LIB(LIB_NAME mepa_lan966x_macsec ADVANCED
+-         DEFS     -DMEPA_HAS_VTSS  -DMEPA_HAS_KSZ9031  -D MEPA_HAS_LAN8814 -DMEPA_HAS_LAN884x
+-         DRVS     mepa_drv_vtss_10g_macsec_ts mepa_drv_ksz9031    mepa_drv_lan8814   mepa_drv_lan884x)
 +         DRVS     mepa_drv_vtss mepa_drv_ksz9031 mepa_drv_lan8814 mepa_drv_lan884x)
  
  MEPA_LIB(LIB_NAME mepa_eds2 ADVANCED

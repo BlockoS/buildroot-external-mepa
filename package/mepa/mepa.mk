@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-MEPA_VERSION = 2025.12
+MEPA_VERSION = 2026.03
 MEPA_SITE = $(call github,microchip-ung,sw-mepa,v$(MEPA_VERSION))
 MEPA_LICENSE = MIT
 MEPA_LICENSE_FILES = LICENSE

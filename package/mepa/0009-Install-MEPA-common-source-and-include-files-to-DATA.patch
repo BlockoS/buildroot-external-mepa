@@ -1,0 +1,43 @@
+From 4e0aba03703c70b4f58b90cbd4e1d9dbd1de93b4 Mon Sep 17 00:00:00 2001
+From: Vincent Cruz <mooz@blockos.org>
+Date: Mon, 20 Apr 2026 15:32:45 +0200
+Subject: [PATCH 09/10] Install MEPA common source and include files to
+ DATADIR.
+
+Signed-off-by: Vincent Cruz <mooz@blockos.org>
+---
+ .cmake/mepaConfig.cmake.in | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/.cmake/mepaConfig.cmake.in b/.cmake/mepaConfig.cmake.in
+index 6786c0c..203f142 100644
+--- a/.cmake/mepaConfig.cmake.in
++++ b/.cmake/mepaConfig.cmake.in
+@@ -13,7 +13,7 @@ function(MEPA_LIB)
+ 
+     list(REMOVE_DUPLICATES _args_DRVS)
+ 
+-    set(_MEPA_COMMON_DIR $<PATH:NORMAL_PATH,$<PATH:APPEND,$<TARGET_FILE_DIR:mepa::mepa>,..,..,include,mepa,common>>)
++    set(_MEPA_COMMON_DIR $<PATH:NORMAL_PATH,$<PATH:APPEND,$<TARGET_FILE_DIR:mepa::mepa>,..,..,share,mepa,common>>)
+     add_library(${_args_NAME} 
+         STATIC
+         $<$<BOOL:${_args_EXCLUDE_FROM_ALL}>:EXCLUDE_FROM_ALL>
+@@ -23,7 +23,7 @@ function(MEPA_LIB)
+             ${_MEPA_COMMON_DIR}/src/phy.c
+     )
+     target_include_directories(${_args_NAME}
+-        PRIVATE
++        PUBLIC
+             $<BUILD_INTERFACE:${_MEPA_COMMON_DIR}/include>
+     )
+     target_link_libraries(${_args_NAME}
+@@ -31,4 +31,4 @@ function(MEPA_LIB)
+             mepa::mepa_headers
+             ${_args_DRVS}
+     )
+-endfunction()
+\ No newline at end of file
++endfunction()
+-- 
+2.51.0
+

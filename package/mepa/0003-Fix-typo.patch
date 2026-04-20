@@ -1,0 +1,26 @@
+From 5ae4476d9a88ef7b46f75e9e3d71d0d220ffaabd Mon Sep 17 00:00:00 2001
+From: Vincent Cruz <mooz@blockos.org>
+Date: Fri, 27 Mar 2026 17:45:17 +0100
+Subject: [PATCH 03/10] Fix typo.
+
+Signed-off-by: Vincent Cruz <mooz@blockos.org>
+---
+ CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 1d2566e..b5b346e 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -78,7 +78,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+     target_compile_definitions(lm_utils PRIVATE -DLMU_OS_LINUX)
+ endif ()
+ 
+-# Detect wether the compiler either support __VA_OPT__ or the GNU extension for __VA_ARGS__
++# Detect whether the compiler either support __VA_OPT__ or the GNU extension for __VA_ARGS__
+ # (this test is skipped for Clang and GCC 13)
+ if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang" AND
+    NOT (CMAKE_C_COMPILER_ID MATCHES "GNU" AND  CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL 13 AND CMAKE_C_COMPILER_VERSION VERSION_LESS 14))
+-- 
+2.51.0
+

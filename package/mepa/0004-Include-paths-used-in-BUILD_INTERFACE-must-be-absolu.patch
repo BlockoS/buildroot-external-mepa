@@ -1,7 +1,7 @@
-From f56d664d514bf73218f0ac08cf464c0b0a31ac1f Mon Sep 17 00:00:00 2001
+From a85ad52675935edd7b0c9e39a511fb0a9353050f Mon Sep 17 00:00:00 2001
 From: Vincent Cruz <mooz@blockos.org>
 Date: Tue, 3 Mar 2026 18:09:15 +0100
-Subject: [PATCH 3/6] Include paths used in BUILD_INTERFACE must be absolute.
+Subject: [PATCH 04/10] Include paths used in BUILD_INTERFACE must be absolute.
 
 Signed-off-by: Vincent Cruz <mooz@blockos.org>
 ---
@@ -24,7 +24,7 @@ Signed-off-by: Vincent Cruz <mooz@blockos.org>
  16 files changed, 113 insertions(+), 71 deletions(-)
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 1d2566e..f62d080 100644
+index b5b346e..14813e9 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -3,7 +3,10 @@
@@ -188,7 +188,7 @@ index 1ed4ba5..87f0610 100644
      mepa_merge_static_libs(TARGET    ${A_LIB_NAME}
                             FILENAME  lib${A_LIB_NAME}.a
 diff --git a/mepa/CMakeLists.txt b/mepa/CMakeLists.txt
-index 8ec4b91..6636209 100644
+index a78e3c5..bf1db50 100644
 --- a/mepa/CMakeLists.txt
 +++ b/mepa/CMakeLists.txt
 @@ -1,7 +1,9 @@

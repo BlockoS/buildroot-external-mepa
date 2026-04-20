@@ -1,7 +1,7 @@
-From 174aa79ba97a3a908d95e182a923d29e64d6b44f Mon Sep 17 00:00:00 2001
+From 33613eb948ee6025e1e26aa34cd9afecf1533a28 Mon Sep 17 00:00:00 2001
 From: Vincent Cruz <mooz@blockos.org>
 Date: Thu, 19 Mar 2026 14:05:13 +0100
-Subject: [PATCH 2/6] Skip the detection of VA_OPTS and VA_ARGS GNU ext for
+Subject: [PATCH 02/10] Skip the detection of VA_OPTS and VA_ARGS GNU ext for
  clang and gcc 13.
 
 Signed-off-by: Vincent Cruz <mooz@blockos.org>

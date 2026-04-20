@@ -1,7 +1,7 @@
-From 2207c05ce9caf3e9806ccfb6b72bd29ec475a10b Mon Sep 17 00:00:00 2001
+From 8d45676f28144e4c4e65b56891defc7358e0759b Mon Sep 17 00:00:00 2001
 From: Vincent Cruz <mooz@blockos.org>
 Date: Thu, 19 Mar 2026 16:30:08 +0100
-Subject: [PATCH 5/6] Add package configure file generation.
+Subject: [PATCH 06/10] Add package configure file generation.
 
 Signed-off-by: Vincent Cruz <mooz@blockos.org>
 ---
@@ -55,7 +55,7 @@ index 0000000..91d9a9f
 +check_required_components(mepa)
 \ No newline at end of file
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 7bbf5c2..785ba43 100644
+index 1dc3917..0a71288 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -35,6 +35,7 @@ mark_as_advanced(BUILD_MEPA_DEMO MESA_PRE_AG BUILD_DOXYGEN)

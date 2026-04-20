@@ -1,0 +1,165 @@
+From 50541c5e07c48788cf142d988b1b389ea80f0f88 Mon Sep 17 00:00:00 2001
+From: Vincent Cruz <mooz@blockos.org>
+Date: Mon, 20 Apr 2026 15:35:06 +0200
+Subject: [PATCH 10/10] Install lan80xx, lan8814 and vtss include files.
+
+vtss include files were already installed in
+${CMAKE_INSTALL_PREFIX}/include/mepa. They will now be installed in
+${CMAKE_INSTALL_PREFIX}/include/mepa/vtss
+
+Signed-off-by: Vincent Cruz <mooz@blockos.org>
+---
+ .cmake/common.cmake                   |  2 +-
+ CMakeLists.txt                        |  4 ----
+ mepa/.cmake/mepa-macros.cmake         |  4 +---
+ mepa/CMakeLists.txt                   |  2 +-
+ mepa/microchip/lan80xx/CMakeLists.txt | 17 +++++++++++++++++
+ mepa/microchip/lan8814/CMakeLists.txt | 17 +++++++++++++++++
+ mepa/vtss/CMakeLists.txt              | 17 +++++++++++++++++
+ 7 files changed, 54 insertions(+), 9 deletions(-)
+
+diff --git a/.cmake/common.cmake b/.cmake/common.cmake
+index eb004b8..784623d 100644
+--- a/.cmake/common.cmake
++++ b/.cmake/common.cmake
+@@ -39,7 +39,7 @@ macro(install_targets)
+           EXPORT mepaTargets
+           RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}/${_tgt_path}
+           PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/mepa
+-          INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/mepa
++          INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/mepa ${CMAKE_INSTALL_INCLUDEDIR}
+           ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/${_tgt_path}
+           LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/${_tgt_path}
+       )
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 0a71288..836d6f3 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -257,10 +257,6 @@ foreach(f ${API_MEPA_HDR})
+     configure_file("mepa/include/${f}" "${CMAKE_CURRENT_BINARY_DIR}/include_common/${f}" COPYONLY)
+ endforeach()
+ 
+-foreach(f ${API_MEPA_VTSS_HDR})
+-    configure_file("mepa/vtss/include/${f}" "${CMAKE_CURRENT_BINARY_DIR}/include_common/${f}" COPYONLY)
+-endforeach()
+-
+ foreach(f ${API_ME_HDR})
+     # Add all me headers
+     configure_file("sw-mesa/me/include/${f}" "${CMAKE_CURRENT_BINARY_DIR}/include_common/${f}" COPYONLY)
+diff --git a/mepa/.cmake/mepa-macros.cmake b/mepa/.cmake/mepa-macros.cmake
+index cf7f582..c5be4c3 100644
+--- a/mepa/.cmake/mepa-macros.cmake
++++ b/mepa/.cmake/mepa-macros.cmake
+@@ -17,7 +17,6 @@ macro(MEPA_DRV)
+     target_include_directories(${A_LIB_NAME} 
+         PUBLIC 
+             $<BUILD_INTERFACE:${public_includes}>
+-            $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+         PRIVATE
+             $<BUILD_INTERFACE:${private_includes}>
+     )
+@@ -38,11 +37,10 @@ macro(MEPA_DRV)
+     if (${BUILD_${A_LIB_NAME}})
+         message(STATUS "Build ${A_LIB_NAME} including ${A_MEPA_DEFINES}")
+         set_target_properties(${A_LIB_NAME} PROPERTIES EXCLUDE_FROM_ALL FALSE)
++        install_targets(TARGETS ${A_LIB_NAME})
+     else()
+         set_target_properties(${A_LIB_NAME} PROPERTIES EXCLUDE_FROM_ALL TRUE)
+     endif()
+-
+-    install_targets(TARGETS ${A_LIB_NAME})
+ endmacro()
+ 
+ macro(mepa_merge_static_libs)
+diff --git a/mepa/CMakeLists.txt b/mepa/CMakeLists.txt
+index 6400f06..f0a4cda 100644
+--- a/mepa/CMakeLists.txt
++++ b/mepa/CMakeLists.txt
+@@ -104,5 +104,5 @@ MEPA_LIB(LIB_NAME mepa_p64h ADVANCED
+ 
+ install(
+     DIRECTORY common
+-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/mepa
++    DESTINATION ${CMAKE_INSTALL_DATADIR}/mepa
+ )
+diff --git a/mepa/microchip/lan80xx/CMakeLists.txt b/mepa/microchip/lan80xx/CMakeLists.txt
+index 7f21864..118ef10 100644
+--- a/mepa/microchip/lan80xx/CMakeLists.txt
++++ b/mepa/microchip/lan80xx/CMakeLists.txt
+@@ -54,3 +54,20 @@ if (${MEPA_lan80xx_ts_msec})
+     set(mepa_defs ${mepa_defs} -DMEPA_HAS_LAN80XX CACHE INTERNAL "")
+ endif()
+ 
++add_library(mepa_lan80xx_headers INTERFACE)
++target_sources(mepa_lan80xx_headers
++    PUBLIC
++        FILE_SET HEADERS
++            TYPE HEADERS
++            BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include
++            FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/microchip/
++)
++install(
++    TARGETS mepa_lan80xx_headers
++    EXPORT mepaTargets
++    FILE_SET HEADERS DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/mepa/microchip/
++)
++
++foreach(_tgt mepa_drv_lan80xx_ts mepa_drv_lan80xx_ts)
++    target_include_directories(${_tgt} PUBLIC $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/mepa/microchip>)
++endforeach()
+\ No newline at end of file
+diff --git a/mepa/microchip/lan8814/CMakeLists.txt b/mepa/microchip/lan8814/CMakeLists.txt
+index 668b302..ec49b52 100644
+--- a/mepa/microchip/lan8814/CMakeLists.txt
++++ b/mepa/microchip/lan8814/CMakeLists.txt
+@@ -32,3 +32,20 @@ if (${MEPA_lan8814} AND ${MEPA_lan8814_light})
+     message(FATAL_ERROR "MEPA_lan8814 and MEPA_lan8814_light are mutually exclusive")
+ endif()
+ 
++add_library(mepa_lan8814_headers INTERFACE)
++target_sources(mepa_lan8814_headers
++    PUBLIC
++        FILE_SET HEADERS
++            TYPE HEADERS
++            BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include
++            FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/microchip/
++)
++install(
++    TARGETS mepa_lan8814_headers
++    EXPORT mepaTargets
++    FILE_SET HEADERS DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/mepa/microchip/
++)
++
++foreach(_tgt mepa_drv_lan8814 mepa_drv_lan8814_light)
++    target_include_directories(${_tgt} PUBLIC $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/mepa/microchip>)
++endforeach()
+\ No newline at end of file
+diff --git a/mepa/vtss/CMakeLists.txt b/mepa/vtss/CMakeLists.txt
+index bf7f274..112525b 100644
+--- a/mepa/vtss/CMakeLists.txt
++++ b/mepa/vtss/CMakeLists.txt
+@@ -109,3 +109,20 @@ if (${MEPA_vtss})
+     set(mepa_defs ${mepa_defs} -DMEPA_HAS_VTSS CACHE INTERNAL "")
+ endif()
+ 
++add_library(mepa_vtss_headers INTERFACE)
++target_sources(mepa_vtss_headers
++    PUBLIC
++        FILE_SET HEADERS
++            TYPE HEADERS
++            BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
++            FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/
++)
++install(
++    TARGETS mepa_vtss_headers
++    EXPORT mepaTargets
++    FILE_SET HEADERS DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/mepa/vtss
++)
++
++foreach(_tgt mepa_drv_vtss mepa_drv_vtss_10g_only mepa_drv_vtss_ts mepa_drv_vtss_10g_ts mepa_drv_vtss_10g_macsec_ts mepa_drv_vtss_custom)
++    target_include_directories(${_tgt} PUBLIC $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/mepa/vtss>)
++endforeach()
+\ No newline at end of file
+-- 
+2.51.0
+

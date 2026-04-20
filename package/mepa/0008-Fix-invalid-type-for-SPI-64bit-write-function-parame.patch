@@ -1,0 +1,27 @@
+From 624784b7cfca3a52d863aa73131b0918a63fbccb Mon Sep 17 00:00:00 2001
+From: Vincent Cruz <mooz@blockos.org>
+Date: Mon, 20 Apr 2026 10:17:58 +0200
+Subject: [PATCH 08/10] Fix invalid type for SPI 64bit write function
+ parameter.
+
+Signed-off-by: Vincent Cruz <mooz@blockos.org>
+---
+ mepa/include/microchip/ethernet/phy/api/phy.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/mepa/include/microchip/ethernet/phy/api/phy.h b/mepa/include/microchip/ethernet/phy/api/phy.h
+index 449e1ac..16b64ae 100644
+--- a/mepa/include/microchip/ethernet/phy/api/phy.h
++++ b/mepa/include/microchip/ethernet/phy/api/phy.h
+@@ -171,7 +171,7 @@ typedef mepa_rc (*mepa_spi_write_t)(struct mepa_callout_ctx          *ctx,
+  *   MEPA_RC_NOT_IMPLEMENTED when not supported.\n
+  *   MEPA_RC_OK on success.
+  **/
+-typedef mepa_rc (*mepa_spi_write_64bit_t)(struct mepa_callout_ctx        ctx,
++typedef mepa_rc (*mepa_spi_write_64bit_t)(struct mepa_callout_ctx        *ctx,
+                                           mepa_port_no_t                 port_no,
+                                           const uint8_t                  mmd,
+                                           const uint16_t                 addr,
+-- 
+2.51.0
+

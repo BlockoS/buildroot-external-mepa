@@ -1,7 +1,7 @@
-From 7491de7121a424ce2d0ea50c6491bd60142e751b Mon Sep 17 00:00:00 2001
+From a308882452f806a6d27b3bc75d5bea0e2fcdbebc Mon Sep 17 00:00:00 2001
 From: Vincent Cruz <mooz@blockos.org>
 Date: Thu, 19 Mar 2026 15:29:40 +0100
-Subject: [PATCH 4/6] Add install targets.
+Subject: [PATCH 05/10] Add install targets.
 
 The following files and directories will be installed:
   * <binary_dir>/include_common -> <install_prefix>/include/mepa
@@ -46,7 +46,7 @@ index 9e816ba..df07572 100644
 +endmacro()
 \ No newline at end of file
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index f62d080..7bbf5c2 100644
+index 14813e9..1dc3917 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -34,6 +34,8 @@ mark_as_advanced(BUILD_MEPA_DEMO MESA_PRE_AG BUILD_DOXYGEN)
