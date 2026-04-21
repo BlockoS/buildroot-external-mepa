@@ -105,12 +105,12 @@ MEPA_CONF_OPTS += -DMEPA_vtss_opt_10g:BOOL=$(if $(BR2_PACKAGE_MEPA_VTSS_CUSTOM_1
 endif
 
 MEPA_RUBY_DEPS = parslet
-define MEPA_RUBY_DEPS_INSALL
+define MEPA_RUBY_DEPS_INSTALL
 	$(foreach dep,$(MEPA_RUBY_DEPS), \
 		$(HOST_DIR)/bin/gem install $(dep)
 	)
 endef
-MEPA_PRE_CONFIGURE_HOOKS += MEPA_RUBY_DEPS_INSALL
+MEPA_PRE_CONFIGURE_HOOKS += MEPA_RUBY_DEPS_INSTALL
 
 define MEPA_EXTRACT_MESA
 	mkdir -p $(@D)/sw-mesa
@@ -120,5 +120,10 @@ endef
 MEPA_POST_EXTRACT_HOOKS += MEPA_EXTRACT_MESA
 
 MEPA_DEPENDENCIES += host-ruby
+
+define MEPA_REMOVE_COMMON_SRCS
+	rm -rf $(TARGET_DIR)/usr/share/mepa
+endef
+MEPA_TARGET_FINALIZE_HOOKS += MEPA_REMOVE_COMMON_SRCS
 
 $(eval $(cmake-package))
