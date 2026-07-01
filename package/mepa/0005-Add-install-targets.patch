@@ -1,15 +1,13 @@
 From a308882452f806a6d27b3bc75d5bea0e2fcdbebc Mon Sep 17 00:00:00 2001
 From: Vincent Cruz <mooz@blockos.org>
 Date: Thu, 19 Mar 2026 15:29:40 +0100
-Subject: [PATCH 05/10] Add install targets.
+Subject: [PATCH 05/13] Add install targets.
 
 The following files and directories will be installed:
   * <binary_dir>/include_common -> <install_prefix>/include/mepa
   * mepa demo binaries -> <install_prefix>/bin/mepa_demo
   * mepa libraries and drivers -> <install_prefix>/lib/mepa
   * vsc7559 and lan966x libraries -> <install_prefix>/lib
-
-Signed-off-by: Vincent Cruz <mooz@blockos.org>
 ---
  .cmake/common.cmake           | 19 +++++++++++++++
  CMakeLists.txt                | 16 ++++++++++++
@@ -180,5 +178,5 @@ index d98f6bc..0f34414 100644
  include_directories(../mepa/vtss/include)
  include_directories(../mepa/vtss/src)
 -- 
-2.51.0
+2.53.0
 

@@ -1,9 +1,8 @@
 From 8d45676f28144e4c4e65b56891defc7358e0759b Mon Sep 17 00:00:00 2001
 From: Vincent Cruz <mooz@blockos.org>
 Date: Thu, 19 Mar 2026 16:30:08 +0100
-Subject: [PATCH 06/10] Add package configure file generation.
+Subject: [PATCH 06/13] Add package configure file generation.
 
-Signed-off-by: Vincent Cruz <mooz@blockos.org>
 ---
  .cmake/common.cmake        | 17 +++++++++++++++++
  .cmake/mepaConfig.cmake.in |  5 +++++
@@ -101,5 +100,5 @@ index 1dc3917..0a71288 100644
 +        ${CMAKE_INSTALL_LIBDIR}/cmake/mepa
 +)
 -- 
-2.51.0
+2.53.0
 

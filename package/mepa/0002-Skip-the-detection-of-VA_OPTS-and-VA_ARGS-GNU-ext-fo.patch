@@ -1,10 +1,9 @@
 From 33613eb948ee6025e1e26aa34cd9afecf1533a28 Mon Sep 17 00:00:00 2001
 From: Vincent Cruz <mooz@blockos.org>
 Date: Thu, 19 Mar 2026 14:05:13 +0100
-Subject: [PATCH 02/10] Skip the detection of VA_OPTS and VA_ARGS GNU ext for
+Subject: [PATCH 02/13] Skip the detection of VA_OPTS and VA_ARGS GNU ext for
  clang and gcc 13.
 
-Signed-off-by: Vincent Cruz <mooz@blockos.org>
 ---
  CMakeLists.txt | 6 ++++++
  1 file changed, 6 insertions(+)
@@ -34,5 +33,5 @@ index 4d62b75..1d2566e 100644
      add_definitions(-DLMU_BOOL_IS_UINT8)
  endif()
 -- 
-2.51.0
+2.53.0
 

@@ -1,9 +1,8 @@
 From a85ad52675935edd7b0c9e39a511fb0a9353050f Mon Sep 17 00:00:00 2001
 From: Vincent Cruz <mooz@blockos.org>
 Date: Tue, 3 Mar 2026 18:09:15 +0100
-Subject: [PATCH 04/10] Include paths used in BUILD_INTERFACE must be absolute.
+Subject: [PATCH 04/13] Include paths used in BUILD_INTERFACE must be absolute.
 
-Signed-off-by: Vincent Cruz <mooz@blockos.org>
 ---
  CMakeLists.txt                        | 57 +++++++++++++++------------
  mepa/.cmake/mepa-macros.cmake         | 20 +++++++---
@@ -468,5 +467,5 @@ index 173b867..d98f6bc 100644
  
  macro(IMG_TARGET)
 -- 
-2.51.0
+2.53.0
 

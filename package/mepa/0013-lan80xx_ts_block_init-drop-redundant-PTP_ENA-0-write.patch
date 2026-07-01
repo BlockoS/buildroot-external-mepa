@@ -1,0 +1,38 @@
+From 14d4efbf082f906a6cccbc4624ed43c701d0893e Mon Sep 17 00:00:00 2001
+From: Vincent Cruz <mooz@blockos.org>
+Date: Wed, 1 Jul 2026 17:10:24 +0200
+Subject: [PATCH 13/13] lan80xx_ts_block_init: drop redundant PTP_ENA=0 write
+ before PLL reconfig
+
+The PTP_ENA=0 write disturbs the running LTC unnecessarily.  The
+subsequent ltcpll_configure_and_lock() handles the PLL reconfiguration
+safely without needing the PTP domain disabled first.
+
+Continues MEPA-1359 (external clk_src / clk_freq handling): originally
+paired with the pre-disable, kept here only from the pristine SDK path
+that has no lock-first requirement.
+
+Signed-off-by: Vincent Cruz <mooz@blockos.org>
+---
+ mepa/microchip/lan80xx/src/lan80xx_ts_private.c | 5 -----
+ 1 file changed, 5 deletions(-)
+
+diff --git a/mepa/microchip/lan80xx/src/lan80xx_ts_private.c b/mepa/microchip/lan80xx/src/lan80xx_ts_private.c
+index a898c7f..a6d9370 100644
+--- a/mepa/microchip/lan80xx/src/lan80xx_ts_private.c
++++ b/mepa/microchip/lan80xx/src/lan80xx_ts_private.c
+@@ -603,11 +603,6 @@ static mepa_rc lan80xx_ts_block_init(const mepa_device_t  *dev)
+     if (!base_data->ptp_shared_ltc_pll_init) {
+         mepa_bool_t external = (clk_src != LAN80XX_PHY_TS_CLOCK_SRC_SYSREFCLK);
+ 
+-        /* Disable PTP domain before reconfiguring PLL */
+-        LAN80XX_CSR_WRM(base_port, LAN80XX_PTP_LTC_PTP_DOM_CFG,
+-                        LAN80XX_F_PTP_LTC_PTP_DOM_CFG_PTP_ENA(0),
+-                        LAN80XX_M_PTP_LTC_PTP_DOM_CFG_PTP_ENA);
+-
+         if (external) {
+             /* Must lock on SYSREFCLK first before switching to any other reference clock. */
+             rc = ltcpll_configure_and_lock(dev, base_port, LAN80XX_PHY_TS_CLOCK_SRC_SYSREFCLK);
+-- 
+2.53.0
+

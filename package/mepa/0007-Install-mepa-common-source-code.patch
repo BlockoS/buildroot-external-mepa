@@ -1,13 +1,11 @@
 From f842f449bf48e6e90de789f27bdd7ca6e93f217f Mon Sep 17 00:00:00 2001
 From: Vincent Cruz <mooz@blockos.org>
 Date: Fri, 20 Mar 2026 16:33:08 +0100
-Subject: [PATCH 07/10] Install mepa common source code.
+Subject: [PATCH 07/13] Install mepa common source code.
 
 Install mepa/common to <install_dir>/include/mepa.
 Add a function in CMake package script to create custom mepa libraries.
 Driver targets now embedded MEPA_HAS_<drv> compile definition.
-
-Signed-off-by: Vincent Cruz <mooz@blockos.org>
 ---
  .cmake/mepaConfig.cmake.in            | 31 +++++++++++++++++-
  mepa/.cmake/mepa-macros.cmake         |  2 +-
@@ -371,5 +369,5 @@ index e82de35..bf7f274 100644
  option(MEPA_vtss_opt_1g      "Compile vtss family with 1G support" OFF)
  if (${MEPA_vtss_opt_1g})
 -- 
-2.51.0
+2.53.0
 

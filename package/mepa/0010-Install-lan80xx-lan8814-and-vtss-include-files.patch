@@ -1,7 +1,7 @@
 From 50541c5e07c48788cf142d988b1b389ea80f0f88 Mon Sep 17 00:00:00 2001
 From: Vincent Cruz <mooz@blockos.org>
 Date: Mon, 20 Apr 2026 15:35:06 +0200
-Subject: [PATCH 10/10] Install lan80xx, lan8814 and vtss include files.
+Subject: [PATCH 10/13] Install lan80xx, lan8814 and vtss include files.
 
 vtss include files were already installed in
 ${CMAKE_INSTALL_PREFIX}/include/mepa. They will now be installed in
@@ -161,5 +161,5 @@ index bf7f274..112525b 100644
 +endforeach()
 \ No newline at end of file
 -- 
-2.51.0
+2.53.0
 

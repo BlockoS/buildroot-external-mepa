@@ -1,7 +1,7 @@
 From 624784b7cfca3a52d863aa73131b0918a63fbccb Mon Sep 17 00:00:00 2001
 From: Vincent Cruz <mooz@blockos.org>
 Date: Mon, 20 Apr 2026 10:17:58 +0200
-Subject: [PATCH 08/10] Fix invalid type for SPI 64bit write function
+Subject: [PATCH 08/13] Fix invalid type for SPI 64bit write function
  parameter.
 
 Signed-off-by: Vincent Cruz <mooz@blockos.org>
@@ -23,5 +23,5 @@ index 449e1ac..16b64ae 100644
                                            const uint8_t                  mmd,
                                            const uint16_t                 addr,
 -- 
-2.51.0
+2.53.0
 

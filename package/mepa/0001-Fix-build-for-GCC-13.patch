@@ -1,7 +1,7 @@
 From ae4dc7f277bd341faba18cd386ab59de67313455 Mon Sep 17 00:00:00 2001
 From: Vincent Cruz <mooz@blockos.org>
 Date: Fri, 20 Feb 2026 17:28:05 +0100
-Subject: [PATCH 01/10] Fix build for GCC > 13
+Subject: [PATCH 01/13] Fix build for GCC > 13
 
 Force the detection of __VA_OPT__ or __VA_ARG__ GNU extension so that
 LMU_PP_VA_ARGS_NARG returns 0 when called without any argument.
@@ -93,5 +93,5 @@ index 1bbb7a5..4d62b75 100644
  if (${MESA_OPSYS_LINUX})
      add_definitions(-DLMU_BOOL_IS_UINT8)
 -- 
-2.51.0
+2.53.0
 
