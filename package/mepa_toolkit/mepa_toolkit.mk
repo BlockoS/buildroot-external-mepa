@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-MEPA_TOOLKIT_VERSION = ed98ba11749c5385c0be8c7eca580340c3f96304
+MEPA_TOOLKIT_VERSION = 728ec2a3b924ca82d8fdc858bb8bf970b487a10f
 MEPA_TOOLKIT_SITE = https://gitlab.com/v_cz/mepa_toolkit.git
 MEPA_TOOLKIT_SITE_METHOD = git
 MEPA_TOOLKIT_LICENSE = Proprietary
