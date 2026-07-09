@@ -1,1 +1,3 @@
 source "$BR2_EXTERNAL_MEPA_PATH/package/mepa/Config.in"
+source "$BR2_EXTERNAL_MEPA_PATH/package/mepa_toolkit/Config.in"
+source "$BR2_EXTERNAL_MEPA_PATH/package/lan80xx_apps/Config.in"

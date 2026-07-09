@@ -1,0 +1,12 @@
+config BR2_PACKAGE_MEPA_TOOLKIT
+	bool "mepa_toolkit"
+	depends on BR2_PACKAGE_MEPA
+	depends on BR2_PACKAGE_MEPA_LAN80XX_TS || BR2_PACKAGE_MEPA_LAN80XX_TS_MSEC
+	depends on BR2_TOOLCHAIN_GCC_AT_LEAST_13
+	depends on !BR2_STATIC_LIBS
+	help
+	  MEPA toolkit — a library subset that layers a spidev-based
+	  bus driver and helpers on top of MEPA. Used by lan80xx_apps
+	  (phy_init, phy_fw_update, ...) and downstream daemons.
+
+	  https://gitlab.com/v_cz/mepa_toolkit

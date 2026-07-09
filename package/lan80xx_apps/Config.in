@@ -1,0 +1,19 @@
+config BR2_PACKAGE_LAN80XX_APPS
+	bool "lan80xx_apps"
+	depends on BR2_PACKAGE_MEPA_TOOLKIT
+	depends on BR2_TOOLCHAIN_GCC_AT_LEAST_13
+	depends on !BR2_STATIC_LIBS
+	select BR2_PACKAGE_JSON_C
+	help
+	  Applications and daemons built on top of MEPA + mepa_toolkit
+	  for the LAN80xx PHY family. Installs:
+
+	    /usr/bin/phy_init          — one-shot LAN80xx bring-up
+	    /usr/bin/phy_fw_update     — LAN80xx firmware update over SPI
+	    /usr/bin/mepa_test         — line-side PMA/PCS link probe
+	    /usr/bin/lan80xx_probe     — chip ID readout
+	    /usr/bin/bist_raw          — raw BIST helper
+	    /etc/lan80xx/port_config.json
+	    /etc/systemd/system/lan80xx-init.service (enabled)
+
+	  https://gitlab.com/v_cz/lan80xx_apps
