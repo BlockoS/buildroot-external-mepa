@@ -1,4 +1,4 @@
-# Locally calculated
-sha256  692348b2510cbd88d0558d4b4cd2f04793df76f2f850a9909d28604cc281b079  mepa-2026.03.tar.gz
-sha256  e9cdac447fac130e4876ef0cca2412f448cba53fed54128e751e2752309e1f20  mesa-2025.09.tar.gz
+# Git-fetched from https://github.com/vjardin/mesa branch vj_integration_allPR.
+# Locally calculated.
+sha256  e6a5b6c862b43fb643c1e312b14d9339af704212212b06dc47dd6e4411e5a6ef  mepa-f8aff2d6cf52e89e57ec68b24efec3e02260871e-git4.tar.gz
 sha256  12fc6c4c30c034ced29dc919ca9df08c57a4e1a6462e22eff946a3f9e4b61a3e  LICENSE

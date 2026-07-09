@@ -4,23 +4,21 @@
 #
 ################################################################################
 
-MEPA_VERSION = 2026.03
-MEPA_SITE = $(call github,microchip-ung,sw-mepa,v$(MEPA_VERSION))
+MEPA_VERSION = f8aff2d6cf52e89e57ec68b24efec3e02260871e
+MEPA_SITE = https://github.com/vjardin/mesa.git
+MEPA_SITE_METHOD = git
 MEPA_LICENSE = MIT
 MEPA_LICENSE_FILES = LICENSE
 MEPA_INSTALL_STAGING = YES
 MEPA_SUPPORTS_IN_SOURCE_BUILD = NO
 
-MEPA_MESA_VERSION = 2025.09
-MEPA_MESA_ARCHIVE = mesa-$(MEPA_MESA_VERSION).tar.gz
-MEPA_MESA_SITE = $(call github,microchip-ung,mesa,v$(MEPA_MESA_VERSION)/$(MEPA_MESA_ARCHIVE))
-
-MEPA_EXTRA_DOWNLOADS = \
-	$(MEPA_MESA_SITE)
-
+# vjardin/mesa vj_integration_allPR is a single integrated tree with mesa/,
+# mepa/, meba/, phy_demo_appl/ as siblings; no separate MESA tarball is
+# needed. mesa/demo/ builds both mesa-demo (unused) and mesa-cmd (the SPI-
+# proxy client that replaces mesa-demo as PHY-config front-end).
 MEPA_CONF_OPTS = -DMESA_OPSYS_LINUX:BOOL=ON \
 				 -DBUILD_mepa:BOOL=ON \
-				 -DBUILD_MEPA_DEMO:BOOL=OFF \
+				 -DBUILD_MESA_DEMO:BOOL=ON \
 				 -Dvsc7558:BOOL=$(if $(BR2_PACKAGE_MEPA_VSC7558),ON,OFF) \
 				 -Dlan966x:BOOL=$(if $(BR2_PACKAGE_MEPA_LAN966x),ON,OFF) \
 				 -DBUILD_MEBA_edsx:BOOl=$(if $(BR2_PACKAGE_MEPA_EDSX),ON,OFF) \
@@ -113,14 +111,7 @@ define MEPA_RUBY_DEPS_INSTALL
 endef
 MEPA_PRE_CONFIGURE_HOOKS += MEPA_RUBY_DEPS_INSTALL
 
-define MEPA_EXTRACT_MESA
-	mkdir -p $(@D)/sw-mesa
-	$(call suitable-extractor,$(MEPA_MESA_ARCHIVE)) $(MEPA_DL_DIR)/$(MEPA_MESA_ARCHIVE) | \
-	$(TAR) --strip-components=1 -C $(@D)/sw-mesa $(TAR_OPTIONS) -
-endef
-MEPA_POST_EXTRACT_HOOKS += MEPA_EXTRACT_MESA
-
-MEPA_DEPENDENCIES += host-ruby
+MEPA_DEPENDENCIES += host-ruby json-c mepa-spidev-proxy
 
 define MEPA_REMOVE_COMMON_SRCS
 	rm -rf $(TARGET_DIR)/usr/share/mepa

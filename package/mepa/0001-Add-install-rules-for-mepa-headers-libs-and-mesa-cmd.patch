@@ -1,0 +1,90 @@
+From: Vincent Cruz <vicruz@iliad-free.fr>
+Date: Thu, 9 Jul 2026 17:00:00 +0200
+Subject: [PATCH] Add install rules for MEPA headers, libs, common src, and
+ mesa-cmd
+
+vjardin/mesa vj_integration_allPR does not carry install() rules; libmepa
+and its family drivers sit in the build tree but never make it to the
+sysroot. Downstream users (microchip-zl303xx-userapp, mesa-cmd itself
+when consumed via find_package(mepa)) need the public headers under
+${includedir}/mepa/microchip/..., the merged libmepa*.a and family
+libmepa_drv_*.a under ${libdir}/mepa/..., the common driver source drop
+under ${datadir}/mepa/common/, and the mesa-cmd CLI binary under
+${bindir}.
+
+The block is a pure append at end of two files, so it survives future
+upstream restructuring of mesa/demo and the top-level configure.
+---
+ CMakeLists.txt           | 48 ++++++++++++++++++++++++++++++++++++++++
+ mesa/demo/CMakeLists.txt | 10 +++++++++
+ 2 files changed, 58 insertions(+)
+
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -333,3 +333,51 @@
+     endif()
+ endif()
+ 
++################################################################################
++# Install rules -- keep the sysroot self-contained so downstream users of
++# libmepa (mesa-cmd, microchip-zl303xx-userapp, ...) can find headers, the
++# common driver source drop, and the merged library + family plugins.
++################################################################################
++
++include(GNUInstallDirs)
++
++# Public API headers -- include_common/ is the unified copy of every public
++# header from mepa/, mesa/, meba/, mepa/vtss/, me/, produced by the mesa-ag
++# processing above.
++install(
++    DIRECTORY ${CMAKE_BINARY_DIR}/include_common/
++    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/mepa
++    FILES_MATCHING PATTERN "*.h"
++)
++
++# Common driver source drop -- downstream users compile these against
++# libmepa (mepa_ts_driver.h, mepa_driver.h, mepa_os.h, phy.c ...).
++install(
++    DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/mepa/common/
++    DESTINATION ${CMAKE_INSTALL_DATADIR}/mepa/common
++    FILES_MATCHING
++        PATTERN "*.h"
++        PATTERN "*.c"
++)
++
++# Merged libmepa (bundled via ar -Ms in MEPA_LIB) -- installed by artefact
++# path since it is a CMake IMPORTED target and cannot be install(TARGETS)ed.
++install(FILES ${CMAKE_BINARY_DIR}/mepa/libmepa.a
++        DESTINATION ${CMAKE_INSTALL_LIBDIR}/mepa
++        OPTIONAL)
++
++# Family driver static libraries -- pick up any libmepa_drv_*.a produced by
++# an enabled BUILD_mepa_drv_<family> option.
++foreach(_drv_dir IN ITEMS
++        mepa/microchip/lan80xx
++        mepa/microchip/lan8814
++        mepa/microchip/lan8770
++        mepa/microchip/lan884x
++        mepa/microchip/lan867x
++        mepa/microchip/lan887x
++        mepa/microchip/lan8x8x
++        mepa/aqr mepa/intel mepa/ksz9031 mepa/vtss mepa/dummy_phy)
++    install(DIRECTORY ${CMAKE_BINARY_DIR}/${_drv_dir}/
++            DESTINATION ${CMAKE_INSTALL_LIBDIR}/${_drv_dir}
++            FILES_MATCHING PATTERN "libmepa_drv_*.a")
++endforeach()
+--- a/mesa/demo/CMakeLists.txt
++++ b/mesa/demo/CMakeLists.txt
+@@ -417,3 +417,12 @@
+ 
+ endif()
+ 
++# Install rules -- ship the CLI (renamed to mesa-cmd via OUTPUT_NAME) so it
++# can drive the LAN80xx PHY through lan80xx-spid; skip the rest of the
++# executables (mesa-demo, base64decode, spi_reg_read, init, ...) since they
++# are not consumed by our runtime.
++include(GNUInstallDirs)
++install(
++    TARGETS cli
++    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
++)

@@ -1,0 +1,15 @@
+[Unit]
+Description=LAN80xx SPI proxy daemon (arbitrates /dev/spidev0.0)
+Documentation=https://github.com/vjardin/mepa-spidev-proxy
+Wants=dev-spidev0.0.device
+After=dev-spidev0.0.device local-fs.target
+Before=network-pre.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/lan80xx-spid -d /dev/spidev0.0 -f 8000000
+Restart=on-failure
+RestartSec=1s
+
+[Install]
+WantedBy=multi-user.target

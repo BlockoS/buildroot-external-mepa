@@ -1,0 +1,23 @@
+config BR2_PACKAGE_MEPA_SPIDEV_PROXY
+	bool "mepa-spidev-proxy"
+	depends on BR2_INIT_SYSTEMD
+	depends on BR2_TOOLCHAIN_HAS_THREADS
+	depends on !BR2_STATIC_LIBS
+	help
+	  Userspace SPI arbitration daemon for the LAN80xx PHY family.
+
+	  The daemon (lan80xx-spid) owns /dev/spidevX.Y exclusively and
+	  exposes an AF_UNIX SOCK_SEQPACKET socket (default
+	  /run/lan80xx-spid.sock) that serialises READ / WRITE / BATCH /
+	  MAILBOX / CLAIM / RELEASE requests from clients such as mesa-cmd
+	  and the ZLS userAppDemo. This replaces the historical mesa-demo
+	  daemon as SPI owner.
+
+	  Installs:
+	    /usr/bin/lan80xx-spid          — arbitration daemon
+	    /usr/bin/spiproxy-cli          — ad-hoc client
+	    /usr/include/spi_proxy/spiproxy.h
+	    /usr/lib/cmake/mepa_spidev_proxy/   (find_package integration)
+	    /usr/lib/systemd/system/lan80xx-spid.service (enabled by default)
+
+	  https://github.com/vjardin/mepa-spidev-proxy
