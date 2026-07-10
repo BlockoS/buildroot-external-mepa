@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-MEPA_VERSION = f8aff2d6cf52e89e57ec68b24efec3e02260871e
+MEPA_VERSION = 7468359727fa16248077ff8598b9b950865c12f2
 MEPA_SITE = https://github.com/vjardin/mesa.git
 MEPA_SITE_METHOD = git
 MEPA_LICENSE = MIT

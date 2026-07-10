@@ -42,6 +42,22 @@ upstream restructuring of mesa/demo and the top-level configure.
 +    FILES_MATCHING PATTERN "*.h"
 +)
 +
++# Family plugin headers -- mepa/microchip/<family>/include/microchip/*.h are
++# NOT swept into include_common/ by the mesa-ag processing (that pass only
++# covers mepa/include/**.h). Install them directly so consumers can
++# #include <microchip/lan80xx_ts.h> etc.
++foreach(_fam_hdr_dir IN ITEMS
++        mepa/microchip/lan80xx/include
++        mepa/microchip/lan8814/include)
++    if(IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${_fam_hdr_dir})
++        install(
++            DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${_fam_hdr_dir}/
++            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/mepa
++            FILES_MATCHING PATTERN "*.h"
++        )
++    endif()
++endforeach()
++
 +# Common driver source drop -- downstream users compile these against
 +# libmepa (mepa_ts_driver.h, mepa_driver.h, mepa_os.h, phy.c ...).
 +install(
