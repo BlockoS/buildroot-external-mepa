@@ -15,13 +15,10 @@ ${bindir}.
 The block is a pure append at end of two files, so it survives future
 upstream restructuring of mesa/demo and the top-level configure.
 ---
- CMakeLists.txt           | 48 ++++++++++++++++++++++++++++++++++++++++
- mesa/demo/CMakeLists.txt | 10 +++++++++
- 2 files changed, 58 insertions(+)
 
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -333,3 +333,51 @@
+@@ -333,3 +333,86 @@
      endif()
  endif()
  
@@ -74,24 +71,43 @@ upstream restructuring of mesa/demo and the top-level configure.
 +        DESTINATION ${CMAKE_INSTALL_LIBDIR}/mepa
 +        OPTIONAL)
 +
-+# Family driver static libraries -- pick up any libmepa_drv_*.a produced by
-+# an enabled BUILD_mepa_drv_<family> option.
-+foreach(_drv_dir IN ITEMS
-+        mepa/microchip/lan80xx
-+        mepa/microchip/lan8814
-+        mepa/microchip/lan8770
-+        mepa/microchip/lan884x
-+        mepa/microchip/lan867x
-+        mepa/microchip/lan887x
-+        mepa/microchip/lan8x8x
-+        mepa/aqr mepa/intel mepa/ksz9031 mepa/vtss mepa/dummy_phy)
-+    install(DIRECTORY ${CMAKE_BINARY_DIR}/${_drv_dir}/
-+            DESTINATION ${CMAKE_INSTALL_LIBDIR}/${_drv_dir}
-+            FILES_MATCHING PATTERN "libmepa_drv_*.a")
++# Family driver static libraries. install(TARGETS) picks up the produced .a
++# by target reference, unlike install(DIRECTORY ... FILES_MATCHING ...) which
++# silently skips build-produced files on a first-ever build. Enumerate all
++# known MEPA_DRV() targets under an if(TARGET) guard so disabled families
++# don't fail configure.
++foreach(_drv IN ITEMS
++        mepa_drv_lan80xx_ts
++        mepa_drv_lan80xx_ts_msec
++        mepa_drv_lan8770
++        mepa_drv_lan8814
++        mepa_drv_lan8814_light
++        mepa_drv_lan884x
++        mepa_drv_lan867x
++        mepa_drv_lan8x8x
++        mepa_drv_lan887x
++        mepa_drv_aqr
++        mepa_drv_intel
++        mepa_drv_ksz9031
++        mepa_drv_vtss
++        mepa_drv_vtss_10g_only
++        mepa_drv_vtss_ts
++        mepa_drv_vtss_10g_ts
++        mepa_drv_vtss_10g_macsec_ts
++        mepa_drv_vtss_custom
++        mepa_drv_dummy_phy)
++    # MEPA_DRV() creates the target regardless of BUILD_<drv>, only setting
++    # EXCLUDE_FROM_ALL — install(TARGETS) on an excluded target errors at
++    # install-time (no .a produced). Gate on the BUILD option instead of
++    # if(TARGET).
++    if(BUILD_${_drv})
++        install(TARGETS ${_drv}
++                ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/mepa)
++    endif()
 +endforeach()
 --- a/mesa/demo/CMakeLists.txt
 +++ b/mesa/demo/CMakeLists.txt
-@@ -417,3 +417,12 @@
+@@ -415,3 +415,12 @@
  
  endif()
  
