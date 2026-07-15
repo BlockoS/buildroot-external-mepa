@@ -107,7 +107,7 @@ upstream restructuring of mesa/demo and the top-level configure.
 +endforeach()
 --- a/mesa/demo/CMakeLists.txt
 +++ b/mesa/demo/CMakeLists.txt
-@@ -415,3 +415,12 @@
+@@ -415,3 +415,21 @@
  
  endif()
  
@@ -120,3 +120,12 @@ upstream restructuring of mesa/demo and the top-level configure.
 +    TARGETS cli
 +    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 +)
++# The PHY-only mesa-demo variant (mesa-demo-void) is the daemon mesa-cmd
++# connects to via /var/run/cli_ipc.socket. Guarded on the app_void CMake
++# option so a non-PHY_ONLY build doesn't fail here.
++if(TARGET app_void)
++    install(
++        TARGETS app_void
++        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
++    )
++endif()

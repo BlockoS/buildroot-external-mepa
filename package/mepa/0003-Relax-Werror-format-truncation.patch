@@ -1,0 +1,27 @@
+From: Vincent Cruz <vicruz@iliad-free.fr>
+Date: Wed, 15 Jul 2026 18:00:00 +0200
+Subject: [PATCH] Relax -Werror=format-truncation
+
+GCC 15 tightens the format-truncation warning. meba/src/drivers/poe_driver.c
+calls snprintf(tmp, out_size, "%02hhX ", ...) where `out_size` is a runtime
+value that GCC conservatively models as INT_MAX-5; with -Werror the build
+fails when `tmp` is a small on-stack buffer.
+
+Demote this specific warning to non-fatal until upstream refactors
+print_as_hex_string / pd_rd. PoE code is unused on our LAN80xx-only path
+but is linked into meba_void_static, so we can't ignore it via subdir
+exclusion.
+
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -8,6 +8,10 @@ project(vtss_api)
+ include(CMakeParseArguments)
+ include(.cmake/common.cmake)
+
++# GCC 15 upgraded -Wformat-truncation warnings to hit conservative-INT_MAX
++# snprintf bounds in meba/src/drivers/poe_driver.c. Non-fatal until upstream.
++add_compile_options(-Wno-error=format-truncation)
++
+ option(BUILD_ALL         "Enable all" OFF)
+ option(BUILD_STATIC_LIBS "Build static versions of the libraries" ON)
+ option(BUILD_SHARED_LIBS "Build shared versions of the libraries" ON)

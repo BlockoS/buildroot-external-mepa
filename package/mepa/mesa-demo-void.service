@@ -1,0 +1,14 @@
+[Unit]
+Description=MESA demo (PHY-only) — serves mesa-cmd via /var/run/cli_ipc.socket
+Documentation=https://github.com/vjardin/mesa
+Requires=lan80xx-spid.service
+After=lan80xx-spid.service local-fs.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/mesa-demo-void -P proxy:/run/lan80xx-spid.sock
+Restart=on-failure
+RestartSec=2s
+
+[Install]
+WantedBy=multi-user.target

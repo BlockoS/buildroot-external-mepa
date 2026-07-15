@@ -14,11 +14,15 @@ MEPA_SUPPORTS_IN_SOURCE_BUILD = NO
 
 # vjardin/mesa vj_integration_allPR is a single integrated tree with mesa/,
 # mepa/, meba/, phy_demo_appl/ as siblings; no separate MESA tarball is
-# needed. mesa/demo/ builds both mesa-demo (unused) and mesa-cmd (the SPI-
-# proxy client that replaces mesa-demo as PHY-config front-end).
+# needed. mesa/demo/ builds mesa-cmd (the CLI) and mesa-demo-void (the
+# PHY-only daemon that mesa-cmd talks to over /var/run/cli_ipc.socket).
+# -DMESA_PHY_ONLY strips the switch source set out of mesa_demo_lib;
+# -Dapp_void enables the mesa-demo-void executable (no-switch variant).
 MEPA_CONF_OPTS = -DMESA_OPSYS_LINUX:BOOL=ON \
 				 -DBUILD_mepa:BOOL=ON \
 				 -DBUILD_MESA_DEMO:BOOL=ON \
+				 -DMESA_PHY_ONLY:BOOL=ON \
+				 -Dapp_void:BOOL=ON \
 				 -Dvsc7558:BOOL=$(if $(BR2_PACKAGE_MEPA_VSC7558),ON,OFF) \
 				 -Dlan966x:BOOL=$(if $(BR2_PACKAGE_MEPA_LAN966x),ON,OFF) \
 				 -DBUILD_MEBA_edsx:BOOl=$(if $(BR2_PACKAGE_MEPA_EDSX),ON,OFF) \
@@ -117,5 +121,17 @@ define MEPA_REMOVE_COMMON_SRCS
 	rm -rf $(TARGET_DIR)/usr/share/mepa
 endef
 MEPA_TARGET_FINALIZE_HOOKS += MEPA_REMOVE_COMMON_SRCS
+
+# mesa-demo-void.service: mesa-cmd's IPC socket (/var/run/cli_ipc.socket) is
+# served by mesa-demo running in PHY_ONLY mode. The daemon does its own SPI
+# I/O through the lan80xx-spid proxy, so it must start after the proxy is up.
+define MEPA_INSTALL_INIT_SYSTEMD
+	$(INSTALL) -D -m 0644 \
+		$(MEPA_PKGDIR)/mesa-demo-void.service \
+		$(TARGET_DIR)/usr/lib/systemd/system/mesa-demo-void.service
+	mkdir -p $(TARGET_DIR)/etc/systemd/system/multi-user.target.wants
+	ln -sf ../../../../usr/lib/systemd/system/mesa-demo-void.service \
+		$(TARGET_DIR)/etc/systemd/system/multi-user.target.wants/mesa-demo-void.service
+endef
 
 $(eval $(cmake-package))
