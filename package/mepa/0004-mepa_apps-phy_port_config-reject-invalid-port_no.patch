@@ -1,0 +1,41 @@
+mesa/demo/mepa_apps/phy_port_config: reject invalid port_no
+
+`cli_parm_port_no` maps user input "0" to MESA_PORT_NO_NONE
+(0xFFFFFFFF) — see the "NB: Port 0 == PORT_NONE" comment in cli.c.
+`cli_cmd_dev_create` and `cli_cmd_dev_attach` don't check for that
+sentinel before indexing `meba_phy_inst->phy_devices[port_no]`, so
+`mesa-cmd PHY Dev Create 0` (a natural first attempt on a 0-indexed
+port stack) segfaults mesa-demo-void inside `mepa_drv_create` at
+`phy_devices[0xFFFFFFFF]`. Killing the daemon mid-Create leaves the
+LAN80xx in a broken state, taking eth0 with it.
+
+Guard `mepa_drv_create` and `mepa_drv_del` — the two functions that
+index the per-port arrays — against port_no >= port_cnt (which also
+catches MESA_PORT_NO_NONE, since that unsigned value is well past any
+real port_cnt).
+
+--- a/mesa/demo/mepa_apps/phy_port_config.c
++++ b/mesa/demo/mepa_apps/phy_port_config.c
+@@ -72,6 +72,11 @@ static int mepa_drv_create(const mepa_port_no_t port_no)
+         T_E("Invalid port number from meba\n");
+         return MESA_RC_ERROR;
+     }
++    if (port_no >= (mepa_port_no_t)port_cnt) {
++        T_E("Invalid port_no %u (valid uport range: 1..%d)", port_no, port_cnt);
++        cli_printf("Error: invalid port_no (specify a valid uport 1..%d).\n", port_cnt);
++        return MESA_RC_ERROR;
++    }
+
+     if (meba_phy_inst->phy_devices[port_no]) {
+         T_E("Device Already existing on %d", port_no);
+@@ -147,6 +152,10 @@ static int mepa_drv_create(const mepa_port_no_t port_no)
+ static int mepa_drv_del(const mepa_port_no_t port_no)
+ {
+     cli_printf("\nDeleting dev port_no %u\n", port_no);
++    if (port_no >= (mepa_port_no_t)port_cnt) {
++        T_E("Invalid port_no %u (valid uport range: 1..%d)", port_no, port_cnt);
++        return MESA_RC_ERROR;
++    }
+     if (meba_phy_inst->phy_devices[port_no]) {
+         if (mepa_delete(meba_phy_inst->phy_devices[port_no]) != MEPA_RC_OK) {
+             T_E("Unable to delete the mepa device %d", port_no);
