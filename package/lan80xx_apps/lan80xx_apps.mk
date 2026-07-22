@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-LAN80XX_APPS_VERSION = ce2872f2a7eaecc8d1759f4a4a8c94edf0b1f1f4
+LAN80XX_APPS_VERSION = 7f8032c759c15a1f8c96c4c1d2948daba7d7cdeb
 LAN80XX_APPS_SITE = https://gitlab.com/v_cz/lan80xx_apps.git
 LAN80XX_APPS_SITE_METHOD = git
 LAN80XX_APPS_LICENSE = Proprietary
