@@ -1,0 +1,143 @@
+From: Vincent Cruz <vicruz@iliad-free.fr>
+Subject: [PATCH] mesa/demo/phy_only.c: LAN80xx SPI framing + slice mapping fixes
+
+Three related fixes to the -P direct-spidev path so mesa-demo-void can
+talk to a LAN80xx package correctly:
+
+1. phy_only_xfer: use two separate SPI_IOC_MESSAGE(1) ioctls (prime +
+   capture) for reads instead of a single ioctl with padding bytes.
+   LAN80xx SPI is one-transaction-delayed: the response to a read
+   command comes out at the start of the *next* transaction's data
+   window.  The padded-single-ioctl shortcut only works when the SPI
+   controller keeps CS asserted through the padding, which is not
+   guaranteed (mt5824 observed, but the fix is generally applicable
+   and mirrors the mepa-spidev-proxy read path).
+
+2. phy_only_spi_rw: with phy_only_xfer now handling the delayed
+   pipeline internally, the caller-side second-read-of-DEVICE_ID
+   trigger is redundant and worse -- it layers a second prime+capture
+   on top and overwrites *data with the DEVICE_ID value for every
+   read.  A single xfer call now returns the target register value.
+
+3. phy_only_spi_rw: use direct port->slice mapping.  The historical
+   reversal (base + ports - 1 - port_no) assumed a board where the
+   LAN80xx package's slice ordering ran opposite to Linux port_no; on
+   a board with straight-through wiring it addresses non-existent
+   slices and every read/write targets empty register space.  A board
+   with reversed wiring can layer a port->slice hook back on if
+   needed.
+
+Together these produce reads that return the correct target-register
+value on the direct-spidev path (verified by side-by-side SPI trace vs
+mepa_toolkit's mepa_spidev.c reader, and by observing eth0 link-up on
+LAN8024 host-facing 10G SFI).
+
+--- a/mesa/demo/phy_only.c
++++ b/mesa/demo/phy_only.c
+@@ -331,20 +331,23 @@
+     return MESA_RC_OK;
+ }
+ 
+-// One SPI transfer in the spi.c frame format: 23-bit address
+-// (bit 23 = write) + 32-bit data; reads append the slot's padding bytes.
++// SPI transfer in the spi.c frame format: 23-bit address (bit 23 = write) +
++// 32-bit data.
++//
++// LAN80xx SPI is one-transaction-delayed: a read's response comes out at
++// the start of the *next* transaction's data window, not within the same
++// transaction.  A logical read is therefore two SPI transactions on the
++// same fd — a prime (discarded rx) followed by a capture (rx[3..6] carries
++// the prime's response).  Using two separate SPI_IOC_MESSAGE(1) ioctls
++// rather than one SPI_IOC_MESSAGE(2) with cs_change=1 avoids SPI-controller
++// implementations that don't honor cs_change tightly enough for the chip's
++// thd;ssn timing (mirrors the mepa-spidev-proxy read path).
++// Writes stay as a single 7-byte transaction (chip returns no data on writes).
+ static mesa_rc phy_only_xfer(phy_only_slot_t *slot, mesa_bool_t read,
+                              uint32_t addr, uint32_t *const data)
+ {
+-    uint8_t tx[PHY_ONLY_SPI_BYTES + PHY_ONLY_SPI_PAD_MAX];
+-    uint8_t rx[sizeof(tx)] = { 0 };
+-    struct spi_ioc_transfer tr = {
+-        .tx_buf = (unsigned long)tx,
+-        .rx_buf = (unsigned long)rx,
+-        .len = PHY_ONLY_SPI_BYTES + (read ? slot->pad : 0),
+-        .speed_hz = slot->freq,
+-        .bits_per_word = 8,
+-    };
++    uint8_t tx[PHY_ONLY_SPI_BYTES];
++    uint8_t rx[PHY_ONLY_SPI_BYTES] = { 0 };
+ 
+     memset(tx, 0xff, sizeof(tx));
+     tx[0] = (uint8_t)((read ? 0 : 0x80) | ((addr >> 16) & 0x7f));
+@@ -356,11 +359,33 @@
+         tx[5] = (uint8_t)(*data >> 8);
+         tx[6] = (uint8_t)(*data >> 0);
+     }
+-    if (ioctl(slot->fd, SPI_IOC_MESSAGE(1), &tr) < 1) {
+-        return MESA_RC_ERROR;
+-    }
++
++    struct spi_ioc_transfer tr = {
++        .tx_buf = (unsigned long)tx,
++        .rx_buf = (unsigned long)rx,
++        .len = PHY_ONLY_SPI_BYTES,
++        .speed_hz = slot->freq,
++        .bits_per_word = 8,
++    };
++
+     if (read) {
+-        *data = (rx[3] << 24) | (rx[4] << 16) | (rx[5] << 8) | rx[6];
++        /* Prime: send command, discard response. */
++        uint8_t rx_dummy[PHY_ONLY_SPI_BYTES] = { 0 };
++        struct spi_ioc_transfer tr_prime = tr;
++        tr_prime.rx_buf = (unsigned long)rx_dummy;
++        if (ioctl(slot->fd, SPI_IOC_MESSAGE(1), &tr_prime) < 1) {
++            return MESA_RC_ERROR;
++        }
++        /* Capture: repeat command; rx carries the delayed response. */
++        if (ioctl(slot->fd, SPI_IOC_MESSAGE(1), &tr) < 1) {
++            return MESA_RC_ERROR;
++        }
++        *data = ((uint32_t)rx[3] << 24) | ((uint32_t)rx[4] << 16) |
++                ((uint32_t)rx[5] << 8)  | (uint32_t)rx[6];
++    } else {
++        if (ioctl(slot->fd, SPI_IOC_MESSAGE(1), &tr) < 1) {
++            return MESA_RC_ERROR;
++        }
+     }
+     return MESA_RC_OK;
+ }
+@@ -437,7 +462,13 @@
+     if (phy_only_trace_fp != NULL) {
+         phy_only_trace_op(port_no, read, mmd, reg_num);
+     }
+-    ch_no = slot->base + slot->ports - 1 - port_no;
++    /* Direct port→slice mapping.  On boards where the LAN80xx package's
++     * slice ordering matches Linux port_no (LAN80xx port 0 = SPI-frame
++     * slice 0), the historical reversal (base + ports - 1 - port_no)
++     * addresses non-existent slices and every subsequent register access
++     * targets empty register space.  Users of a board with the opposite
++     * wiring convention should provide their own port→slice hook. */
++    ch_no = slot->base + port_no;
+ #ifdef MEPA_HAS_SPIPROXY
+     if (slot->proxy) {
+         return phy_only_proxy_rw(slot, ch_no, read, mmd, reg_num, data);
+@@ -447,14 +478,10 @@
+         return MESA_RC_ERROR;
+     }
+     addr = ch_no << 21 | mmd << 16 | reg_num;
+-    if (read) {
+-        if (phy_only_xfer(slot, 1, addr, data) != MESA_RC_OK) {
+-            return MESA_RC_ERROR;
+-        }
+-        addr = ch_no << 21 | PHY_ONLY_DEVICE_ID_MMD << 16 | PHY_ONLY_DEVICE_ID_REG;
+-        return phy_only_xfer(slot, 1, addr, data);
+-    }
+-    return phy_only_xfer(slot, 0, addr, data);
++    /* phy_only_xfer handles the LAN80xx delayed-read protocol internally
++     * (prime + capture on the same fd).  A single xfer call returns the
++     * target register value. */
++    return phy_only_xfer(slot, read, addr, data);
+ }
+ 
+ // Hardware-reset the LAN80xx package owning `port_no` by asking the SPI
