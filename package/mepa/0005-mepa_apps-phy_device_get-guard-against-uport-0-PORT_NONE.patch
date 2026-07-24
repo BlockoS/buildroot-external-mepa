@@ -1,0 +1,825 @@
+From: Claude <noreply@anthropic.com>
+Subject: [PATCH] mepa_apps: guard cli_cmd_* handlers against uport=0 -> PORT_NONE
+
+cli_parm_port_no (mesa/demo/cli.c:206) accepts uport=0 and converts it to
+MESA_PORT_NO_NONE (0xFFFFFFFF) via uport2iport() -- the "Port 0 == PORT_NONE"
+comment even flags this as intentional, because packet.c and ip.c treat 0
+as a "no port" sentinel.
+
+Every cli_cmd_* handler under mepa_apps/ blindly indexes
+<inst>->phy_devices[req->port_no] and dereferences the result. For
+req->port_no == 0xFFFFFFFF that is a wild pointer, and mesa-demo-void
+SIGSEGVs the moment mesa-cmd is invoked with a 0 port argument (e.g.
+'mesa-cmd PHY State 0'):
+
+    unhandled signal 11 code 0x1 at 0x00000032ca925760 in mesa-demo-void
+    cause: 0x0d (Load page fault)
+
+Add a shared inline helper phy_device_get() that bounds-checks against
+inst->phy_device_cnt, plus a PHY_DEVICE_GUARD(inst) convenience macro.
+Convert the pre-existing '<inst>->phy_devices[req->port_no] == NULL'
+NULL-check idioms in phy25g_diagnostics.c and phy_port_config.c to the
+helper, and prepend PHY_DEVICE_GUARD() at the top of every other cli_cmd_*
+handler that indexes phy_devices[req->port_no].
+
+Signed-off-by: Vincent Cruz <vicruz@iliad-free.fr>
+---
+diff -uNr a/mesa/demo/mepa_apps/phy25g_diagnostics.c b/mesa/demo/mepa_apps/phy25g_diagnostics.c
+--- a/mesa/demo/mepa_apps/phy25g_diagnostics.c	2026-07-10 02:08:42.000000000 +0200
++++ b/mesa/demo/mepa_apps/phy25g_diagnostics.c	2026-07-23 13:49:34.974444418 +0200
+@@ -10,6 +10,7 @@
+ #include "cli.h"
+ #include "port.h"
+ #include "phy_demo_apps.h"
++#include "phy_device_get.h"
+ #include "mepa_driver.h"
+ #include "lan80xx.h"
+ #include "lan80xx_mcu.h"   /* lan80xx_get_serdes_config, eSERDES_CFG_T, __SERDES_CONFIG_T */
+@@ -133,7 +134,7 @@
+         return;
+     }
+     keyword_parsed.prbs_mon_parsed = 0;
+-    if (meba_phy_diag_instance->phy_devices[req->port_no] == NULL) {
++    if (phy_device_get(meba_phy_diag_instance, req->port_no) == NULL) {
+         cli_printf(" Dev is Not Created for the port : %d\n", req->port_no);
+         return;
+     }
+@@ -197,7 +198,7 @@
+     mepa_phy_prbs_generator_conf_t prbs_get;
+     mepa_phy_prbs_monitor_conf_t   mon_get;
+     phy25g_appl_diag_t            *mreq = req->module_req;
+-    if (meba_phy_diag_instance->phy_devices[req->port_no] == NULL) {
++    if (phy_device_get(meba_phy_diag_instance, req->port_no) == NULL) {
+         cli_printf(" Dev is Not Created for the port : %d\n", req->port_no);
+         return;
+     }
+@@ -255,7 +256,7 @@
+         }
+     }
+ 
+-    if (meba_phy_diag_instance->phy_devices[req->port_no] == NULL) {
++    if (phy_device_get(meba_phy_diag_instance, req->port_no) == NULL) {
+         cli_printf(" Dev is Not Created for the port : %d\n", req->port_no);
+         return;
+     }
+@@ -289,8 +290,8 @@
+     char           *mode_txt[] = {"PCS Retimer", "MAC Retimer"};
+     char           *fec[] = {"None", "R-FEC", "RS-FEC", "R-FEC, RS-FEC"};
+     char           *fec_enabled_port[] = {"None", "HOST", "LINE", "HOST-LINE"};
+-    if (meba_phy_diag_instance->phy_devices[req->port_no] == NULL) {
+-        cli_printf(" Dev is Not Created for the port : %d\n", req->port_no);
++    if (phy_device_get(meba_phy_diag_instance, req->port_no) == NULL) {
++        cli_printf(" Dev is Not Created for the port : %d\n", req->port_no + 1);
+         return;
+     }
+     if ((rc = mepa_conf_get(meba_phy_diag_instance->phy_devices[req->port_no], &conf_get)) !=
+@@ -380,7 +381,7 @@
+ {
+     phy25g_appl_diag_t *mreq = req->module_req;
+     mepa_rc             rc;
+-    if (meba_phy_diag_instance->phy_devices[req->port_no] == NULL) {
++    if (phy_device_get(meba_phy_diag_instance, req->port_no) == NULL) {
+         cli_printf(" Dev is Not Created for the port : %d\n", req->port_no);
+         return;
+     }
+@@ -398,7 +399,7 @@
+     mepa_rc             rc;
+     uint32_t            value = 0;
+ 
+-    if (meba_phy_diag_instance->phy_devices[req->port_no] == NULL) {
++    if (phy_device_get(meba_phy_diag_instance, req->port_no) == NULL) {
+         cli_printf(" Dev is Not Created for the port : %d\n", req->port_no);
+         return;
+     }
+@@ -467,7 +468,7 @@
+         T_E("\n Invalid Argument \n");
+         return;
+     }
+-    if (meba_phy_diag_instance->phy_devices[req->port_no] == NULL) {
++    if (phy_device_get(meba_phy_diag_instance, req->port_no) == NULL) {
+         cli_printf(" Dev is Not Created for the port : %d\n", req->port_no);
+         return;
+     }
+@@ -496,7 +497,7 @@
+         T_E("\n Invalid Argument \n");
+         return;
+     }
+-    if (meba_phy_diag_instance->phy_devices[req->port_no] == NULL) {
++    if (phy_device_get(meba_phy_diag_instance, req->port_no) == NULL) {
+         cli_printf(" Dev is Not Created for the port : %d\n", req->port_no);
+         return;
+     }
+@@ -527,7 +528,7 @@
+         T_E("\n Invalid Argument \n");
+         return;
+     }
+-    if (meba_phy_diag_instance->phy_devices[req->port_no] == NULL) {
++    if (phy_device_get(meba_phy_diag_instance, req->port_no) == NULL) {
+         cli_printf(" Dev is Not Created for the port : %d\n", req->port_no);
+         return;
+     }
+diff -uNr a/mesa/demo/mepa_apps/phy_device_get.h b/mesa/demo/mepa_apps/phy_device_get.h
+--- a/mesa/demo/mepa_apps/phy_device_get.h	1970-01-01 01:00:00.000000000 +0100
++++ b/mesa/demo/mepa_apps/phy_device_get.h	2026-07-23 13:49:34.974142677 +0200
+@@ -0,0 +1,45 @@
++// Copyright (c) 2026 Free Mobile
++// SPDX-License-Identifier: MIT
++
++#ifndef PHY_DEVICE_GET_H_
++#define PHY_DEVICE_GET_H_
++
++#include "microchip/ethernet/board/api.h"
++
++// Bounds-checked accessor for a MEBA instance's phy_devices[] array.
++//
++// The CLI parser accepts uport=0 as a valid input (its comment says
++// "Port 0 == PORT_NONE") and cli_parm_port_no then calls uport2iport(0)
++// which returns MESA_PORT_NO_NONE (0xFFFFFFFF). Callers that blindly
++// index inst->phy_devices[req->port_no] therefore dereference through
++// an out-of-bounds offset and crash mesa-demo-void with SIGSEGV.
++//
++// Every mepa_apps/*.c cli_cmd_* handler should route its phy_devices
++// access through this helper: NULL means either port_no is out of
++// range or the port has no PHY attached; treat both as user error.
++static inline mepa_device_t *
++phy_device_get(meba_inst_t inst, mesa_port_no_t port_no)
++{
++	if (inst == NULL) {
++		return NULL;
++	}
++	if (port_no >= (mesa_port_no_t)inst->phy_device_cnt) {
++		return NULL;
++	}
++	return inst->phy_devices[port_no];
++}
++
++/* Convenience guard for cli_cmd_* handlers.  Rejects invalid port_no or
++ * missing PHY device with a user-facing message and returns from the
++ * enclosing function.  Use at the top of every cli_cmd_* body that later
++ * indexes <inst>->phy_devices[req->port_no]. */
++#define PHY_DEVICE_GUARD(inst)                                        \
++	do {                                                              \
++		if (phy_device_get((inst), req->port_no) == NULL) {           \
++			cli_printf(" Dev is Not Created for the port : %d\n",     \
++			           req->port_no + 1);                             \
++			return;                                                   \
++		}                                                             \
++	} while (0)
++
++#endif /* PHY_DEVICE_GET_H_ */
+diff -uNr a/mesa/demo/mepa_apps/phy_diagnostics.c b/mesa/demo/mepa_apps/phy_diagnostics.c
+--- a/mesa/demo/mepa_apps/phy_diagnostics.c	2026-07-10 02:08:42.000000000 +0200
++++ b/mesa/demo/mepa_apps/phy_diagnostics.c	2026-07-23 13:49:34.974626377 +0200
+@@ -17,6 +17,7 @@
+ #include "port.h"
+ #include "mepa_driver.h"
+ #include "phy_demo_apps.h"
++#include "phy_device_get.h"
+ 
+ static void cli_cmd_cable_diagnostics(cli_req_t *req);
+ 
+@@ -46,6 +47,7 @@
+     char                    *CableDiagStatusStrings[] = {"OK", "OPEN", "SHORT", NULL, "ABNORM"};
+     char                    *PairNameStrings[] = {"A", "B", "C", "D"};
+ 
++    PHY_DEVICE_GUARD(meba_phy_diag_inst);
+     if ((rc = phy_family_detect(meba_phy_diag_inst, req->port_no, &phy_family)) != MEPA_RC_OK) {
+         T_E("\n Error in Detecting PHY Family on Port %d\n", req->port_no);
+         return;
+diff -uNr a/mesa/demo/mepa_apps/phy_gpio_demo.c b/mesa/demo/mepa_apps/phy_gpio_demo.c
+--- a/mesa/demo/mepa_apps/phy_gpio_demo.c	2026-07-10 02:08:42.000000000 +0200
++++ b/mesa/demo/mepa_apps/phy_gpio_demo.c	2026-07-23 13:49:34.974182381 +0200
+@@ -11,6 +11,7 @@
+ #include "cli.h"
+ #include "port.h"
+ #include "phy_demo_apps.h"
++#include "phy_device_get.h"
+ #include "phy_gpio_demo.h"
+ #include <vtss_phy_api.h>
+ #include "lan80xx.h"
+@@ -224,6 +225,7 @@
+     unsigned int                        m;
+     int                                 i;
+ 
++    PHY_DEVICE_GUARD(meba_gpio_lp_instance);
+     if ((rc = mepa_dev_create_check(meba_gpio_lp_instance, req->port_no)) != MEPA_RC_OK) {
+         cli_printf(" Dev is Not Created for the port : %d\n", req->port_no);
+         return;
+@@ -954,6 +956,7 @@
+ {
+     mepa_rc             rc;
+     gpio_configuration *mreq = req->module_req;
++    PHY_DEVICE_GUARD(meba_gpio_lp_instance);
+     if ((rc = mepa_dev_create_check(meba_gpio_lp_instance, req->port_no)) != MEPA_RC_OK) {
+         cli_printf(" Dev is Not Created for the port : %d\n", req->port_no);
+         return;
+@@ -972,6 +975,7 @@
+     gpio_configuration *mreq = req->module_req;
+     ;
+     mepa_bool_t value;
++    PHY_DEVICE_GUARD(meba_gpio_lp_instance);
+     if ((rc = mepa_dev_create_check(meba_gpio_lp_instance, req->port_no)) != MEPA_RC_OK) {
+         cli_printf(" Dev is Not Created for the port : %d\n", req->port_no);
+         return;
+@@ -991,6 +995,7 @@
+     gpio_configuration *mreq = req->module_req;
+     ;
+     mepa_bool_t value;
++    PHY_DEVICE_GUARD(meba_gpio_lp_instance);
+     if ((rc = mepa_dev_create_check(meba_gpio_lp_instance, req->port_no)) != MEPA_RC_OK) {
+         cli_printf(" Dev is Not Created for the port : %d\n", req->port_no);
+         return;
+@@ -1016,6 +1021,7 @@
+     phy25g_ext_event_conf_t ext_evt_conf;
+     uint8_t                 evt;
+ 
++    PHY_DEVICE_GUARD(meba_gpio_lp_instance);
+     if ((rc = mepa_dev_create_check(meba_gpio_lp_instance, req->port_no)) != MEPA_RC_OK) {
+         cli_printf(" Dev is Not Created for the port : %d\n", req->port_no);
+         return;
+diff -uNr a/mesa/demo/mepa_apps/phy_loopback.c b/mesa/demo/mepa_apps/phy_loopback.c
+--- a/mesa/demo/mepa_apps/phy_loopback.c	2026-07-10 02:08:42.000000000 +0200
++++ b/mesa/demo/mepa_apps/phy_loopback.c	2026-07-23 13:49:34.974200555 +0200
+@@ -12,6 +12,7 @@
+ #include "port.h"
+ #include "vtss_phy_10g_api.h"
+ #include "phy_demo_apps.h"
++#include "phy_device_get.h"
+ #include "vtss_private.h"
+ #include "mepa_driver.h"
+ #include "lan80xx.h"
+@@ -87,6 +88,7 @@
+     struct mepa_device *dev = meba_lp_phy_inst->phy_devices[req->port_no];
+     mepa_rc             rc = MEPA_RC_OK;
+ 
++    PHY_DEVICE_GUARD(meba_lp_phy_inst);
+     if (!req->set) {
+         cli_printf("\n Syntax : loopback [<port_no>] [-f] [filename]\n");
+         T_E("\n Provide Port no and filename as arguments\n");
+diff -uNr a/mesa/demo/mepa_apps/phy_macsec_demo.c b/mesa/demo/mepa_apps/phy_macsec_demo.c
+--- a/mesa/demo/mepa_apps/phy_macsec_demo.c	2026-07-10 02:08:42.000000000 +0200
++++ b/mesa/demo/mepa_apps/phy_macsec_demo.c	2026-07-23 13:49:34.974333001 +0200
+@@ -12,6 +12,7 @@
+ #include "port.h"
+ #include <mepa_apps/phy_macsec_demo.h>
+ #include "phy_demo_apps.h"
++#include "phy_device_get.h"
+ 
+ /**
+  * \brief   : Enables MACsec Block for given ports
+@@ -285,6 +286,7 @@
+     mepa_rc               rc = MEPA_RC_ERROR;
+     int  protect = 0, frame_val = 0, cipher_sel = 0, sectag_len = 0, es_bit = 0, scb_bit = 0;
+     char input[3];
++    PHY_DEVICE_GUARD(meba_macsec_instance);
+     if ((rc = mepa_dev_check(meba_macsec_instance, req->port_no)) != MEPA_RC_OK) {
+         printf(" Dev is Not Created for the port : %d\n", req->port_no);
+         return;
+@@ -400,6 +402,7 @@
+     macsec_configuration *mreq = req->module_req;
+     mepa_rc               rc = MEPA_RC_ERROR;
+ 
++    PHY_DEVICE_GUARD(meba_macsec_instance);
+     if ((rc = mepa_dev_check(meba_macsec_instance, req->port_no)) != MEPA_RC_OK) {
+         printf(" Dev is Not Created for the port : %d\n", req->port_no);
+         return;
+@@ -437,6 +440,7 @@
+     mepa_rc               rc;
+     int                   match = 0;
+     char                  input[3];
++    PHY_DEVICE_GUARD(meba_macsec_instance);
+     if (!req->set) {
+         T_E("\n Invalid Syntax\n");
+         cli_printf(
+@@ -530,6 +534,7 @@
+     macsec_port.service_id = 0;
+     macsec_port.port_id = mreq->port_id;
+ 
++    PHY_DEVICE_GUARD(meba_macsec_instance);
+     if ((rc = mepa_dev_check(meba_macsec_instance, req->port_no)) != MEPA_RC_OK) {
+         printf(" Dev is Not Created for the port : %d\n", req->port_no);
+         return;
+@@ -554,6 +559,7 @@
+     macsec_port.port_no = req->port_no;
+     macsec_port.service_id = 0;
+     macsec_port.port_id = mreq->port_id;
++    PHY_DEVICE_GUARD(meba_macsec_instance);
+     if ((rc = mepa_dev_check(meba_macsec_instance, req->port_no)) != MEPA_RC_OK) {
+         printf(" Dev is Not Created for the port : %d\n", req->port_no);
+         return;
+@@ -577,6 +583,7 @@
+     mepa_macsec_secy_conf_t secy_conf_get;
+     mepa_rc                 rc;
+ 
++    PHY_DEVICE_GUARD(meba_macsec_instance);
+     if ((rc = mepa_dev_check(meba_macsec_instance, req->port_no)) != MEPA_RC_OK) {
+         printf(" Dev is Not Created for the port : %d\n", req->port_no);
+         return;
+@@ -615,6 +622,7 @@
+     mepa_macsec_secy_conf_t secy_conf_get;
+     mepa_rc                 rc;
+ 
++    PHY_DEVICE_GUARD(meba_macsec_instance);
+     if ((rc = mepa_dev_check(meba_macsec_instance, req->port_no)) != MEPA_RC_OK) {
+         printf(" Dev is Not Created for the port : %d\n", req->port_no);
+         return;
+@@ -712,6 +720,7 @@
+     mepa_macsec_secy_conf_t secy_conf_get;
+     mepa_macsec_ssci_t      ssci;
+ 
++    PHY_DEVICE_GUARD(meba_macsec_instance);
+     if (!req->set) {
+         T_E("\n Invalid Syntax\n");
+         cli_printf(
+@@ -822,6 +831,7 @@
+     char                  filename[100];
+     mepa_macsec_pkt_num_t next_pkt;
+     mepa_macsec_ssci_t    ssci;
++    PHY_DEVICE_GUARD(meba_macsec_instance);
+     if ((rc = mepa_dev_check(meba_macsec_instance, req->port_no)) != MEPA_RC_OK) {
+         printf(" Dev is Not Created for the port : %d\n", (req->port_no + 1));
+         return;
+@@ -928,6 +938,7 @@
+ {
+     mepa_rc               rc;
+     macsec_configuration *mreq = req->module_req;
++    PHY_DEVICE_GUARD(meba_macsec_instance);
+     if ((rc = mepa_dev_check(meba_macsec_instance, req->port_no)) != MEPA_RC_OK) {
+         printf(" Dev is Not Created for the port : %d\n", (req->port_no + 1));
+         return;
+@@ -952,6 +963,7 @@
+ {
+     mepa_rc               rc;
+     macsec_configuration *mreq = req->module_req;
++    PHY_DEVICE_GUARD(meba_macsec_instance);
+     if ((rc = mepa_dev_check(meba_macsec_instance, req->port_no)) != MEPA_RC_OK) {
+         printf(" Dev is Not Created for the port : %d\n", (req->port_no + 1));
+         return;
+@@ -989,6 +1001,7 @@
+     mepa_rc               rc;
+     macsec_configuration *mreq = req->module_req;
+     mepa_macsec_pkt_num_t next_pkt;
++    PHY_DEVICE_GUARD(meba_macsec_instance);
+     if ((rc = mepa_dev_check(meba_macsec_instance, req->port_no)) != MEPA_RC_OK) {
+         printf(" Dev is Not Created for the port : %d\n", (req->port_no + 1));
+         return;
+@@ -1058,6 +1071,7 @@
+     mepa_rc               rc;
+     macsec_configuration *mreq = req->module_req;
+ 
++    PHY_DEVICE_GUARD(meba_macsec_instance);
+     if (!req->set) {
+         T_E("\n Invalid Syntax\n");
+         cli_printf("\n Syntax : statistics secy <port_no> port-id <port_id> [get|clear]\n");
+@@ -1111,6 +1125,7 @@
+ {
+     mepa_rc               rc;
+     macsec_configuration *mreq = req->module_req;
++    PHY_DEVICE_GUARD(meba_macsec_instance);
+     if (!req->set) {
+         T_E("\n Invalid Syntax\n");
+         cli_printf("\n Syntax : statistics tx_sc <port_no> port-id <port_id> [get|clear]\n");
+@@ -1155,6 +1170,7 @@
+ {
+     mepa_rc               rc;
+     macsec_configuration *mreq = req->module_req;
++    PHY_DEVICE_GUARD(meba_macsec_instance);
+     if (!req->set) {
+         T_E("\n Invalid Syntax\n");
+         cli_printf(
+@@ -1199,6 +1215,7 @@
+ {
+     mepa_rc               rc;
+     macsec_configuration *mreq = req->module_req;
++    PHY_DEVICE_GUARD(meba_macsec_instance);
+     if (!req->set) {
+         T_E("\n Invalid Syntax\n");
+         cli_printf(
+@@ -1261,6 +1278,7 @@
+ {
+     mepa_rc               rc;
+     macsec_configuration *mreq = req->module_req;
++    PHY_DEVICE_GUARD(meba_macsec_instance);
+     if (!req->set) {
+         T_E("\n Invalid Syntax\n");
+         cli_printf(
+@@ -1324,6 +1342,7 @@
+ {
+     mepa_rc               rc;
+     macsec_configuration *mreq = req->module_req;
++    PHY_DEVICE_GUARD(meba_macsec_instance);
+     if (!req->set) {
+         T_E("\n Invalid Syntax\n");
+         cli_printf("\n Syntax : statistics mac [hmac|lmac] <port_no> [get|clear]\n");
+@@ -1419,6 +1438,7 @@
+ {
+     mepa_rc               rc;
+     macsec_configuration *mreq = req->module_req;
++    PHY_DEVICE_GUARD(meba_macsec_instance);
+     if (!req->set) {
+         T_E("\n invalid Syntax\n");
+         cli_printf("Syntax : vlan_bypass <port_no> port-id <port_id> [zero|one|two|three|four]\n");
+@@ -1722,6 +1742,7 @@
+     mepa_bool_t        conf = 0;
+     mepa_macsec_ssci_t ssci;
+     mepa_bool_t        active;
++    PHY_DEVICE_GUARD(meba_macsec_instance);
+     if ((rc = mepa_dev_check(meba_macsec_instance, req->port_no)) != MEPA_RC_OK) {
+         printf(" Dev is Not Created for the port : %d\n", (req->port_no + 1));
+         return;
+diff -uNr a/mesa/demo/mepa_apps/phy_macsec_rollover_demo.c b/mesa/demo/mepa_apps/phy_macsec_rollover_demo.c
+--- a/mesa/demo/mepa_apps/phy_macsec_rollover_demo.c	2026-07-10 02:08:42.000000000 +0200
++++ b/mesa/demo/mepa_apps/phy_macsec_rollover_demo.c	2026-07-23 13:49:34.974388855 +0200
+@@ -12,6 +12,7 @@
+ #include "port.h"
+ #include "cli.h"
+ #include "phy_demo_apps.h"
++#include "phy_device_get.h"
+ #include "mepa_os_linux.h"
+ #include <arpa/inet.h>
+ 
+@@ -215,6 +216,7 @@
+ 
+     uint8_t port = req->port_no + 1;
+ 
++    PHY_DEVICE_GUARD(meba_macsec_rollover_instance);
+     if (rollover_direction_egress) {
+         cli_printf("Configuring Egress Rollover on port : %d\n", port);
+         if (rollover_egress_config_port_cnt == 1) {
+diff -uNr a/mesa/demo/mepa_apps/phy_port_config.c b/mesa/demo/mepa_apps/phy_port_config.c
+--- a/mesa/demo/mepa_apps/phy_port_config.c	2026-07-23 13:49:34.919085460 +0200
++++ b/mesa/demo/mepa_apps/phy_port_config.c	2026-07-23 13:49:34.974421606 +0200
+@@ -12,6 +12,7 @@
+ #include "port.h"
+ #include "phy_port_config.h"
+ #include "phy_demo_apps.h"
++#include "phy_device_get.h"
+ #include "microchip/lan8814_cs.h"
+ #include "lan80xx.h"
+ 
+@@ -289,7 +290,7 @@
+ {
+     mepa_rc         rc;
+     demo_phy_info_t phy_family;
+-    if (meba_phy_inst->phy_devices[req->port_no] == NULL) {
++    if (phy_device_get(meba_phy_inst, req->port_no) == NULL) {
+         cli_printf(" Dev is Not Created for the port : %d\n", req->port_no);
+         return;
+     }
+@@ -315,7 +316,7 @@
+     mepa_rc         rc;
+     demo_phy_info_t phy_family;
+     mepa_bool_t     val = 0;
+-    if (meba_phy_inst->phy_devices[req->port_no] == NULL) {
++    if (phy_device_get(meba_phy_inst, req->port_no) == NULL) {
+         cli_printf(" Dev is Not Created for the port : %d\n", req->port_no);
+         return;
+     }
+diff -uNr a/mesa/demo/mepa_apps/phy_synce.c b/mesa/demo/mepa_apps/phy_synce.c
+--- a/mesa/demo/mepa_apps/phy_synce.c	2026-07-10 02:08:42.000000000 +0200
++++ b/mesa/demo/mepa_apps/phy_synce.c	2026-07-23 13:49:34.974615416 +0200
+@@ -18,6 +18,7 @@
+ #include "port.h"
+ #include "mepa_driver.h"
+ #include "phy_demo_apps.h"
++#include "phy_device_get.h"
+ 
+ meba_inst_t meba_phy_instances;
+ 
+@@ -258,6 +259,7 @@
+     struct mepa_device     *dev;
+ 
+     // --- Device check ---
++    PHY_DEVICE_GUARD(meba_phy_instances);
+     if (mepa_dev_check(meba_phy_instances, req->port_no) != MEPA_RC_OK) {
+         T_E("Dev not created for port %d\n", req->port_no + 1);
+         return;
+diff -uNr a/mesa/demo/mepa_apps/phy_ts_demo.c b/mesa/demo/mepa_apps/phy_ts_demo.c
+--- a/mesa/demo/mepa_apps/phy_ts_demo.c	2026-07-10 02:08:42.000000000 +0200
++++ b/mesa/demo/mepa_apps/phy_ts_demo.c	2026-07-23 13:49:34.974516643 +0200
+@@ -11,6 +11,7 @@
+ #include "cli.h"
+ #include "port.h"
+ #include "phy_demo_apps.h"
++#include "phy_device_get.h"
+ #include "mesa-rpc.h"
+ #include <mepa_apps/phy_ts_demo.h>
+ 
+@@ -2007,6 +2008,7 @@
+     ts_configuration *mreq = req->module_req;
+     mepa_ts_ls_type_t ls_type;
+ 
++    PHY_DEVICE_GUARD(meba_ts_instance);
+     switch (mreq->action) {
+     case 0:  ls_type = MEPA_TS_CMD_LOAD; break;
+     case 1:  ls_type = MEPA_TS_CMD_SAVE; break;
+@@ -2042,6 +2044,7 @@
+ 
+     pin_conf.clk_select = mreq->clk_select;
+     pin_conf.pin_inv_pol = LAN80XX_PTP_LSC_ACTIVE_HIGH;
++    PHY_DEVICE_GUARD(meba_ts_instance);
+     switch (mreq->pin_sync_mode) {
+     case 0: pin_conf.pin_sync_mode = LAN80XX_PTP_ACTION_IMMEDIATE; break;
+     case 1: pin_conf.pin_sync_mode = LAN80XX_PTP_ACTION_ONE_SHOT_ON_ACTIVE_EDGE; break;
+@@ -2065,6 +2068,7 @@
+ {
+     ts_configuration        *mreq = req->module_req;
+     phy25g_pps_output_conf_t pin_conf;
++    PHY_DEVICE_GUARD(meba_ts_instance);
+     pin_conf.clk_select = LAN80XX_PTP_ASYNC_NO_CLOCK; /* Asyncronous 1-line 1PPS singnal */
+     pin_conf.pin_inv_pol = LAN80XX_PTP_LSC_ACTIVE_HIGH;
+     pin_conf.pin_sync_mode = LAN80XX_PTP_LSC_1PPS;
+@@ -2100,6 +2104,7 @@
+     pin_conf.pps_pulse_high = mreq->pps_width;
+     pin_conf.pps_pulse_low = mreq->pps_interval;
+ 
++    PHY_DEVICE_GUARD(meba_ts_instance);
+     if (MEPA_RC_OK == lan80xx_phy_ts_pps_ouput_conf_set(meba_ts_instance->phy_devices[req->port_no],
+                                                         req->port_no, &pin_conf)) {
+         cli_printf("\n ...... TS PPS Output Configured for Port : %d......\n", (req->port_no + 1));
+@@ -2125,6 +2130,7 @@
+     sertod_conf.Ld_period_cfg.one_microsec_period_cfg = 318;
+     sertod_conf.Ld_period_cfg.one_sec_wait_period_cfg = 999999;
+ 
++    PHY_DEVICE_GUARD(meba_ts_instance);
+     if (MEPA_RC_OK ==
+         lan80xx_phy_ts_sertod_input_confset(meba_ts_instance->phy_devices[req->port_no],
+                                             req->port_no, &sertod_conf)) {
+@@ -2149,6 +2155,7 @@
+     sertod_conf.pin_wfh_period = mreq->wfh_period;
+     sertod_conf.pin_wfl_period = mreq->wfl_period;
+ 
++    PHY_DEVICE_GUARD(meba_ts_instance);
+     if (MEPA_RC_OK ==
+         lan80xx_phy_ts_sertod_output_confset(meba_ts_instance->phy_devices[req->port_no],
+                                              req->port_no, &sertod_conf)) {
+@@ -2169,6 +2176,7 @@
+     phy25g_ltc_tod_adj.subnanoseconds = mreq->picoseconds;
+     phy25g_ltc_tod_adj.lsc_select = mreq->ls_ctrl_sel;
+ 
++    PHY_DEVICE_GUARD(meba_ts_instance);
+     if (MEPA_RC_OK == lan80xx_phy_ts_ptptime_adj_delta(meba_ts_instance->phy_devices[req->port_no],
+                                                        req->port_no, &phy25g_ltc_tod_adj)) {
+         cli_printf("\n ...... TS LTC Delta Adjust Configured for Port : %d......\n",
+@@ -2189,6 +2197,7 @@
+     epps_conf.epps_event_detect_adjust = mreq->epps_det_cfg;
+     epps_conf.lsc_select = mreq->ls_ctrl_sel;
+ 
++    PHY_DEVICE_GUARD(meba_ts_instance);
+     if (MEPA_RC_OK == lan80xx_phy_ts_epps_conf_set(meba_ts_instance->phy_devices[req->port_no],
+                                                    req->port_no, &epps_conf)) {
+         cli_printf("\n ...... TS EPPS Configured for Port : %d......\n", (req->port_no + 1));
+@@ -2202,6 +2211,7 @@
+ {
+     mepa_timestamp_t timestamp;
+ 
++    PHY_DEVICE_GUARD(meba_ts_instance);
+     if (MEPA_RC_OK == mepa_ts_ltc_get(meba_ts_instance->phy_devices[req->port_no], &timestamp)) {
+         cli_printf("\n\n ...... TS Local Time Counter on Port : %d......\n", (req->port_no + 1));
+         cli_printf("seconds.high: %u\n", timestamp.seconds.high);
+@@ -2226,6 +2236,7 @@
+     timestamp.nanoseconds = mreq->nanoseconds;
+     timestamp.picoseconds = mreq->picoseconds;
+ 
++    PHY_DEVICE_GUARD(meba_ts_instance);
+     if (MEPA_RC_OK == mepa_ts_ltc_set(meba_ts_instance->phy_devices[req->port_no], &timestamp)) {
+         cli_printf("\n ...... TS LTC Set on Port : %d......\n", (req->port_no + 1));
+     } else {
+@@ -2241,6 +2252,7 @@
+     mepa_rc         rc = MEPA_RC_ERROR;
+ 
+     rc = mepa_ts_event_poll(meba_ts_instance->phy_devices[req->port_no], &status);
++    PHY_DEVICE_GUARD(meba_ts_instance);
+     if (rc != MEPA_RC_OK) {
+         cli_printf("TS Event get failed\n");
+         return;
+@@ -2272,6 +2284,7 @@
+     demo_phy_info_t         phy_family;
+     mepa_ts_fifo_sig_mask_t phy_sig_mask = 0;
+ 
++    PHY_DEVICE_GUARD(meba_ts_instance);
+     if ((rc = phy_family_detect(meba_ts_instance, req->port_no, &phy_family)) != MEPA_RC_OK) {
+         T_E("\n Error in Detecting PHY Family on Port %d\n", (req->port_no + 1));
+         return;
+@@ -2334,6 +2347,7 @@
+     mepa_timeinterval_t delay;
+     delay = ((1 << 8) * mreq->delay);
+ 
++    PHY_DEVICE_GUARD(meba_ts_instance);
+     if (mreq->delay_mode == 0) {
+         if (MEPA_RC_OK ==
+             mepa_ts_delay_asymmetry_set(meba_ts_instance->phy_devices[req->port_no], &delay)) {
+@@ -2373,6 +2387,7 @@
+ {
+     ts_configuration   *mreq = req->module_req;
+     mepa_timeinterval_t delay;
++    PHY_DEVICE_GUARD(meba_ts_instance);
+     if (mreq->delay_mode == 0) {
+         if (MEPA_RC_OK ==
+             mepa_ts_delay_asymmetry_get(meba_ts_instance->phy_devices[req->port_no], &delay)) {
+@@ -2425,6 +2440,7 @@
+ 
+     rc = mepa_ts_tx_classifier_conf_get(meba_ts_instance->phy_devices[req->port_no], flow_index,
+                                         &tx_class_conf);
++    PHY_DEVICE_GUARD(meba_ts_instance);
+     if (rc != MEPA_RC_OK) {
+         cli_printf("\n Failed to Get TX Classifier conf\n");
+         return;
+@@ -2492,6 +2508,7 @@
+     mepa_ts_stats_t stats;
+     mepa_rc         result = mepa_ts_stats_get(meba_ts_instance->phy_devices[req->port_no], &stats);
+ 
++    PHY_DEVICE_GUARD(meba_ts_instance);
+     if (result == MEPA_RC_OK) {
+         cli_printf("\n Timestamp Port Statistics");
+         cli_printf("\n ============================");
+@@ -2531,6 +2548,7 @@
+ static void cli_cmd_ts_conf_get(cli_req_t *req)
+ {
+     ts_configuration *mreq = req->module_req;
++    PHY_DEVICE_GUARD(meba_ts_instance);
+     json_rpc_req_t    json_req = {}; // Initialize the JSON-RPC request structure
+     json_object      *jobj = NULL;   // Pointer to hold the created JSON object
+     uint16_t          flw_idx_clk_id = 0;
+@@ -2625,6 +2643,7 @@
+     ts_configuration *mreq = req->module_req;
+ 
+     mreq->csr_value = 0;
++    PHY_DEVICE_GUARD(meba_ts_instance);
+     if (MEPA_RC_OK == mepa_ts_csr_reg_read(meba_ts_instance->phy_devices[req->port_no], mreq->mmd,
+                                            mreq->csr_addr, &mreq->csr_value)) {
+         cli_printf("\n");
+@@ -2644,6 +2663,7 @@
+ {
+     ts_configuration *mreq = req->module_req;
+ 
++    PHY_DEVICE_GUARD(meba_ts_instance);
+     if (MEPA_RC_OK != mepa_ts_csr_reg_write(meba_ts_instance->phy_devices[req->port_no], mreq->mmd,
+                                             mreq->csr_addr, &mreq->csr_value)) {
+         cli_printf("\n TS csr Write Failed for addr:%x at Port:%d", mreq->csr_addr, req->port_no);
+@@ -2682,6 +2702,7 @@
+     mepa_ts_reset_conf_t tsreset = {0};
+     tsreset.tsu_hard_reset = 1;
+ 
++    PHY_DEVICE_GUARD(meba_ts_instance);
+     if (MEPA_RC_OK == mepa_ts_reset(meba_ts_instance->phy_devices[req->port_no], &tsreset)) {
+         cli_printf("\n ...... TS Reset on Port : %d......\n", (req->port_no + 1));
+     } else {
+diff -uNr a/mesa/demo/mepa_apps/phy_xconnect_demo.c b/mesa/demo/mepa_apps/phy_xconnect_demo.c
+--- a/mesa/demo/mepa_apps/phy_xconnect_demo.c	2026-07-10 02:08:42.000000000 +0200
++++ b/mesa/demo/mepa_apps/phy_xconnect_demo.c	2026-07-23 13:49:34.974558040 +0200
+@@ -15,6 +15,7 @@
+ #include "vtss_phy_10g_api.h"
+ #include "vtss_private.h"
+ #include "phy_demo_apps.h"
++#include "phy_device_get.h"
+ #include "mepa_driver.h"
+ #include "lan80xx.h"
+ 
+@@ -81,6 +82,7 @@
+     uint8_t                    max_port_cnt = 0;
+     uint8_t                    min_port = 0;
+ 
++    PHY_DEVICE_GUARD(meba_xc_phy_instance);
+     if ((rc = phy_family_detect(meba_xc_phy_instance, req->port_no, &phy_family)) != MEPA_RC_OK) {
+         T_E("\n Error in Detecting PHY Family on Port %d\n", req->port_no);
+         return;
+@@ -135,6 +137,7 @@
+     demo_phy_info_t     phy_family;
+     struct mepa_device *dev = meba_xc_phy_instance->phy_devices[req->port_no];
+ 
++    PHY_DEVICE_GUARD(meba_xc_phy_instance);
+     if ((rc = phy_family_detect(meba_xc_phy_instance, req->port_no, &phy_family)) != MEPA_RC_OK) {
+         T_E("\n Error in Detecting PHY Family on Port %d\n", req->port_no);
+         return;
+@@ -152,6 +155,7 @@
+     demo_phy_info_t     phy_family;
+     struct mepa_device *dev = meba_xc_phy_instance->phy_devices[req->port_no];
+ 
++    PHY_DEVICE_GUARD(meba_xc_phy_instance);
+     if ((rc = phy_family_detect(meba_xc_phy_instance, req->port_no, &phy_family)) != MEPA_RC_OK) {
+         T_E("\n Error in Detecting PHY Family on Port %d\n", req->port_no);
+         return;
+@@ -202,6 +206,7 @@
+     vtss_phy_10g_auto_failover_conf_t conf = {0};
+     uint8_t                           host_ch, line_ch;
+ 
++    PHY_DEVICE_GUARD(meba_xc_phy_instance);
+     if ((rc = phy_family_detect(meba_xc_phy_instance, req->port_no, &phy_family)) != MEPA_RC_OK) {
+         T_E("\n Error in Detecting PHY Family on Port %d\n", req->port_no);
+         return;
+@@ -286,6 +291,7 @@
+     char  port_xconnect_file[128];
+     char *buffer;
+ 
++    PHY_DEVICE_GUARD(meba_xc_phy_instance);
+     if (!req->set) {
+         cli_printf("\n Syntax : Xconnect_failover <port_no> [-f] [filename]\n");
+         T_E("\n Provide Port no and filename as arguments\n");
+diff -uNr a/mesa/demo/mepa_apps/test_mcu_fw.c b/mesa/demo/mepa_apps/test_mcu_fw.c
+--- a/mesa/demo/mepa_apps/test_mcu_fw.c	2026-07-10 02:08:42.000000000 +0200
++++ b/mesa/demo/mepa_apps/test_mcu_fw.c	2026-07-23 13:49:34.974601390 +0200
+@@ -14,6 +14,7 @@
+ #include "main.h"
+ #include "trace.h"
+ #include "cli.h"
++#include "phy_device_get.h"
+ #include "phy_only.h" /* phy_only_mdint_register() */
+ 
+ #include "lan80xx_mcu.h"
+@@ -61,6 +62,7 @@
+     dev = gmeba_inst->phy_devices[req->port_no];
+     cli_printf("Getting mcu fw info...\n");
+     rc = lan80xx_get_fw_info(dev, &sInfo);
++    PHY_DEVICE_GUARD(gmeba_inst);
+     if (rc != MESA_RC_OK) {
+         cli_printf("FW info get failed\n");
+     } else {
+@@ -82,6 +84,7 @@
+ 
+     cli_printf("sending mcu reset request...\n");
+     rc = lan80xx_mcu_reset(dev);
++    PHY_DEVICE_GUARD(gmeba_inst);
+     if (rc != MEPA_RC_OK) {
+         cli_printf("mcu reset failed: %d\n", rc);
+     } else {
+@@ -99,6 +102,7 @@
+     dev = gmeba_inst->phy_devices[req->port_no];
+     cli_printf("Firmware update\n");
+     rc = lan80xx_fw_update(dev);
++    PHY_DEVICE_GUARD(gmeba_inst);
+     if (rc != MESA_RC_OK) {
+         cli_printf("Firmware update failed (%d)\n", rc);
+     } else {
+@@ -127,6 +131,7 @@
+     otp_cli_req_t *mreq = req->module_req;
+ 
+     dev = gmeba_inst->phy_devices[req->port_no];
++    PHY_DEVICE_GUARD(gmeba_inst);
+     if (mreq->otpLen == 0) {
+         mreq->otpLen = MB_MAX_PAYLOAD_LEN;
+     }
+@@ -152,6 +157,7 @@
+     dev = gmeba_inst->phy_devices[req->port_no];
+     cli_printf("otp cfg read with record index %d\n", mreq->cfg_idx);
+     rc = lan80xx_otp_cfg_read(dev, mreq->cfg_idx, gau8Data, &u16CfgLen);
++    PHY_DEVICE_GUARD(gmeba_inst);
+     if (rc != MESA_RC_OK) {
+         cli_printf("OTP cfg read failed (%d)\n", rc);
+     } else {
+@@ -169,6 +175,7 @@
+     dev = gmeba_inst->phy_devices[req->port_no];
+     cli_printf("otp cfg write...\n");
+     rc = lan80xx_otp_cfg_program(dev, gau8OTPCfgData, &gOTPCfgUpdates[0], gOTPCfgUpdateCnt);
++    PHY_DEVICE_GUARD(gmeba_inst);
+     if (rc != MESA_RC_OK) {
+         cli_printf("OTP cfg write failed (%d)\n", rc);
+     } else {
+@@ -185,6 +192,7 @@
+     dev = gmeba_inst->phy_devices[req->port_no];
+     cli_printf("otp get key status...\n");
+     rc = lan80xx_otp_getKey_Status(dev, &sKey);
++    PHY_DEVICE_GUARD(gmeba_inst);
+     if (rc != MESA_RC_OK) {
+         cli_printf("OTP get key status failed (%d)\n", rc);
+     } else {
+@@ -227,6 +235,7 @@
+     cli_printf("otp key write...\n");
+     rc = lan80xx_otp_prog_RepKey(dev, &gau8OTPKeyData[gKeyOffset], gau8OTPKeyData,
+                                  &gOTPKeyUpdates[0], gOTPKeyUpdateCnt);
++    PHY_DEVICE_GUARD(gmeba_inst);
+     if (rc != MESA_RC_OK) {
+         cli_printf("OTP key write failed (%d)\n", rc);
+     } else {
+@@ -243,6 +252,7 @@
+     cli_printf("otp revoke rot key...\n");
+     rc = lan80xx_otp_revoke_ROTKey(dev, gau8OTPRevokeROTData, &gOTPRevokeROTUpdates[0],
+                                    gOTPRevokeROTUpdateCnt);
++    PHY_DEVICE_GUARD(gmeba_inst);
+     if (rc != MESA_RC_OK) {
+         cli_printf("OTP ROT key revoke failed (%d)\n", rc);
+     } else {
+@@ -259,6 +269,7 @@
+     cli_printf("otp revoke all keys...\n");
+     rc = lan80xx_otp_revoke_AllKeys(dev, gau8OTPRevokeAllData, &gOTPRevokeAllUpdates[0],
+                                     gOTPRevokeAllUpdateCnt);
++    PHY_DEVICE_GUARD(gmeba_inst);
+     if (rc != MESA_RC_OK) {
+         cli_printf("OTP revoke all keys failed (%d)\n", rc);
+     } else {
+@@ -276,6 +287,7 @@
+     dev = gmeba_inst->phy_devices[req->port_no];
+     cli_printf("mem read @0x%x of len 0x%x\n", mreq->Addr, mreq->Len);
+     rc = lan80xx_memory_read(dev, mreq->Addr, au8Data, mreq->Len);
++    PHY_DEVICE_GUARD(gmeba_inst);
+     if (rc != MESA_RC_OK) {
+         cli_printf("MEM read failed (%d)\n", rc);
+     } else {
+@@ -333,6 +345,7 @@
+ {
+     mepa_device_t *dev = gmeba_inst->phy_devices[req->port_no];
+ 
++    PHY_DEVICE_GUARD(gmeba_inst);
+     if (dev == NULL) {
+         cli_printf("Dev not created for port %u\n", req->port_no);
+         return;
