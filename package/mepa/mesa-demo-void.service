@@ -6,7 +6,10 @@ After=lan80xx-spid.service local-fs.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/mesa-demo-void -P proxy:/run/lan80xx-spid.sock
+# mesa-demo-void reads stdin in its CLI shell loop; under systemd's default
+# StandardInput=null, read() returns EOF immediately and the daemon exits.
+# Feed it a never-closing pipe so it stays alive to serve /var/run/cli_ipc.socket.
+ExecStart=/bin/sh -c 'exec sleep infinity | exec /usr/bin/mesa-demo-void -P proxy:/run/lan80xx-spid.sock'
 Restart=on-failure
 RestartSec=2s
 
