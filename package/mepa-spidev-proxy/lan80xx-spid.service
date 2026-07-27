@@ -3,6 +3,12 @@ Description=LAN80xx SPI proxy daemon (arbitrates /dev/spidev0.0)
 Documentation=https://github.com/vjardin/mepa-spidev-proxy
 Wants=dev-spidev0.0.device
 After=dev-spidev0.0.device local-fs.target
+# If the image also ships lan80xx-init.service (phy_init wrapper), wait for
+# it to finish before we grab the spidev fd — else init and spid race and
+# init loses. Both directives are soft: if lan80xx-init is not installed
+# (e.g. the mesa-demo-void embed-init image), systemd silently ignores them.
+Wants=lan80xx-init.service
+After=lan80xx-init.service
 Before=network-pre.target
 
 [Service]
