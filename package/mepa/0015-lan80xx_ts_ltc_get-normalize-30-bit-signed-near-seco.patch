@@ -1,0 +1,41 @@
+From 07669acf632b7f3644ee8308bdb47daf31728b30 Mon Sep 17 00:00:00 2001
+From: Vincent Cruz <mooz@blockos.org>
+Date: Thu, 30 Jul 2026 17:16:39 +0200
+Subject: [PATCH 15/15] lan80xx_ts_ltc_get: normalize 30-bit signed
+ near-second-boundary NSEC (sf01835974)
+
+Vendor sw-mepa patch sf01835974_ltc_overwrap_fix_1 (received 2026-07-30
+from Microchip PHY team). PTP_TOD_NSEC returns a 30-bit signed value on
+synced store near the second boundary; values >= 1e9 are actually
+negative (e.g. 0x3FFFFFFF = -1 ns). Per register spec, subtract
+0x40000000 and add 1e9 to normalize the NSEC field, then decrement SEC
+to compensate.
+---
+ mepa/microchip/lan80xx/src/lan80xx_ts.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/mepa/microchip/lan80xx/src/lan80xx_ts.c b/mepa/microchip/lan80xx/src/lan80xx_ts.c
+index de793ff..ba39b56 100644
+--- a/mepa/microchip/lan80xx/src/lan80xx_ts.c
++++ b/mepa/microchip/lan80xx/src/lan80xx_ts.c
+@@ -441,6 +441,17 @@ static mepa_rc lan80xx_ts_ltc_get(mepa_device_t *dev, mepa_timestamp_t *const ts
+     LAN80XX_CSR_RD(dev, data->port_no, LAN80XX_PTP_LTC_PTP_TOD_SEC_MSB(base_data->lsc_select), &value);
+     ts->seconds.high = (value & 0xffff) ;
+ 
++    /* PTP_TOD_NSEC returns a 30-bit signed value on synced store near second boundary.
++     * Values >= 1e9 are negative (e.g. 0x3FFFFFFF = -1 ns). Per register spec:
++     * subtract 1 from SEC and add 1e9 to NSEC to normalize. */
++    if (ts->nanoseconds >= 1000000000UL) {
++        ts->nanoseconds += 1000000000UL;
++        ts->nanoseconds -= 0x40000000UL;
++        if (ts->seconds.low-- == 0) {
++            ts->seconds.high--;
++        }
++    }
++
+     MEPA_EXIT(dev);
+ 
+     return MEPA_RC_OK;
+-- 
+2.53.0
+

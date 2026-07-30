@@ -1,0 +1,86 @@
+From 663d14821b1daad7edadfc24c6cbadddd3c00302 Mon Sep 17 00:00:00 2001
+From: Vincent Cruz <mooz@blockos.org>
+Date: Thu, 30 Jul 2026 11:02:26 +0200
+Subject: [PATCH 14/15] lan80xx_ts: differentiate CLK_PER_CFG_0 by clock source
+ (MEPA-1380)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The LTC PLL output frequency differs by clock source, so CLK_PER_CFG_0
+must be sourced accordingly:
+
+  SYSREFCLK  → 318.309886009 MHz  → 5.59 fp = 0x1921FB547F9EAE35
+  external   → 318.309886158 MHz  → 5.59 fp = 0x1921FB544D166482
+
+Split the single LAN80XX_PTP_LTC_CLK_PER_CFG_0 constant into
+_SYSREF and _EXTERNAL variants and pick between them in
+lan80xx_ts_block_init based on the current clk_src.
+
+Also add a 1 ms sleep in ltcpll_configure_and_lock between the UPDATE
+write and the first LTCPLL_STS read. Without this, a prior lock's
+STS=1 can produce a false-positive before the PLL actually re-locks
+on the new configuration.
+---
+ .../lan80xx/src/lan80xx_ts_private.c          | 29 ++++++++++++++-----
+ 1 file changed, 22 insertions(+), 7 deletions(-)
+
+diff --git a/mepa/microchip/lan80xx/src/lan80xx_ts_private.c b/mepa/microchip/lan80xx/src/lan80xx_ts_private.c
+index a6d9370..f20d9b2 100644
+--- a/mepa/microchip/lan80xx/src/lan80xx_ts_private.c
++++ b/mepa/microchip/lan80xx/src/lan80xx_ts_private.c
+@@ -13,12 +13,19 @@
+  * CLK_PER_CFG_0 represents the LSB 32-bit
+  * CLK_PER_CFG_1 represents the MSB 32-bit
+  *
+- * LTC Clock Frequency = 318.309886158 MHz, so the Time period is 3.1415926538443369637994679176244 ns
+- * 5.59 fixed point representation of 3.1415926538443369637994679176244 ns will be 0x1921fb547f9eae35 which is spilited into two
+- * 32-bit values (5 + 59 = 64-bit) and configured in CLK_PER_CFG_1 and CLK_PER_CFG_0 register 
++ * The LTC PLL output frequency differs by clock source; CLK_PER must match the actual frequency.
++ *
++ * SYSREFCLK (REF=156.25 MHz, DIVR=25, DIVFI=50, DIVFF=0xEDF912, DIVQ=8):
++ *   LTC = 318.3098860085010528564453125 MHz, period = 3.14159265531983243... ns
++ *   5.59 fixed-point: 0x1921FB547F9EAE35
++ *
++ * LSC_clock / all external sources (125/50/25/10 MHz all yield the same output via scaled DIVR):
++ *   LTC = 318.309886157512664794921875 MHz, period = 3.14159265384914676... ns
++ *   5.59 fixed-point: 0x1921FB544D166482
+  */
+-#define LAN80XX_PTP_LTC_CLK_PER_CFG_1     (0x1921fb54)
+-#define LAN80XX_PTP_LTC_CLK_PER_CFG_0     (0x7f9eae35)
++#define LAN80XX_PTP_LTC_CLK_PER_CFG_1          (0x1921fb54)
++#define LAN80XX_PTP_LTC_CLK_PER_CFG_0_SYSREF   (0x7f9eae35)
++#define LAN80XX_PTP_LTC_CLK_PER_CFG_0_EXTERNAL (0x4d166482)
+ 
+ static lan80xx_phy_ts_pll_map_t phy25g_ts_pll_map[] = {
+     [LAN80XX_PHY_TS_CLOCK_SRC_SYSREFCLK] = {
+@@ -568,6 +575,11 @@ static mepa_rc ltcpll_configure_and_lock(const mepa_device_t *dev,
+                     LAN80XX_F_CLK_CFG_LTCPLL_CMD_REG_LTCPLL_UPDATE(1),
+                     LAN80XX_M_CLK_CFG_LTCPLL_CMD_REG_LTCPLL_UPDATE);
+ 
++    /* Allow hardware to process UPDATE and deassert LTCPLL_STS before polling.
++     * Without this delay, a prior lock's STS=1 can produce a false-positive on
++     * the first read, causing the PLL to appear locked before it actually is. */
++    MEPA_MSLEEP(1);
++
+     while (1) {
+         LAN80XX_CSR_RD(dev, base_port, LAN80XX_CLK_CFG_LTCPLL_STS_REG, &value);
+         if (value & LAN80XX_M_CLK_CFG_LTCPLL_STS_REG_LTCPLL_STS) {
+@@ -624,9 +636,12 @@ static mepa_rc lan80xx_ts_block_init(const mepa_device_t  *dev)
+ 
+         base_data->ptp_shared_ltc_pll_init = TRUE;
+ 
+-        /* setting the clock value */
++        /* CLK_PER must match the actual LTC clock frequency, which differs by reference source:
++         * SYSREFCLK → 318.309886009 MHz, all LSC/external → 318.309886158 MHz. */
+         LAN80XX_CSR_WR(dev, base_port, LAN80XX_PTP_LTC_CLK_PER_CFG(1), LAN80XX_PTP_LTC_CLK_PER_CFG_1);
+-        LAN80XX_CSR_WR(dev, base_port, LAN80XX_PTP_LTC_CLK_PER_CFG(0), LAN80XX_PTP_LTC_CLK_PER_CFG_0);
++        LAN80XX_CSR_WR(dev, base_port, LAN80XX_PTP_LTC_CLK_PER_CFG(0),
++                       external ? LAN80XX_PTP_LTC_CLK_PER_CFG_0_EXTERNAL
++                                : LAN80XX_PTP_LTC_CLK_PER_CFG_0_SYSREF);
+ 
+         if (!base_data-> ptp_shared_ltc_resource) {
+             value = 0x802B;
+-- 
+2.53.0
+
