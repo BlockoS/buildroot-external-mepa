@@ -115,7 +115,10 @@ define MEPA_RUBY_DEPS_INSTALL
 endef
 MEPA_PRE_CONFIGURE_HOOKS += MEPA_RUBY_DEPS_INSTALL
 
-MEPA_DEPENDENCIES += host-ruby json-c mepa-spidev-proxy
+MEPA_DEPENDENCIES += host-ruby json-c zlib
+ifeq ($(BR2_PACKAGE_MEPA_SPIDEV_PROXY),y)
+MEPA_DEPENDENCIES += mepa-spidev-proxy
+endif
 
 define MEPA_REMOVE_COMMON_SRCS
 	rm -rf $(TARGET_DIR)/usr/share/mepa
