@@ -1,7 +1,7 @@
 From 663d14821b1daad7edadfc24c6cbadddd3c00302 Mon Sep 17 00:00:00 2001
 From: Vincent Cruz <mooz@blockos.org>
 Date: Thu, 30 Jul 2026 11:02:26 +0200
-Subject: [PATCH 14/15] lan80xx_ts: differentiate CLK_PER_CFG_0 by clock source
+Subject: [PATCH 7/8] lan80xx_ts: differentiate CLK_PER_CFG_0 by clock source
  (MEPA-1380)
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8

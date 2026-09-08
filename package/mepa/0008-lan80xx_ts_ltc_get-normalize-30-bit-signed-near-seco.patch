@@ -1,7 +1,7 @@
 From 07669acf632b7f3644ee8308bdb47daf31728b30 Mon Sep 17 00:00:00 2001
 From: Vincent Cruz <mooz@blockos.org>
 Date: Thu, 30 Jul 2026 17:16:39 +0200
-Subject: [PATCH 15/15] lan80xx_ts_ltc_get: normalize 30-bit signed
+Subject: [PATCH 8/8] lan80xx_ts_ltc_get: normalize 30-bit signed
  near-second-boundary NSEC (sf01835974)
 
 Vendor sw-mepa patch sf01835974_ltc_overwrap_fix_1 (received 2026-07-30

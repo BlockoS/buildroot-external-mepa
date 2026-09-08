@@ -12,12 +12,6 @@ MEPA_LICENSE_FILES = LICENSE
 MEPA_INSTALL_STAGING = YES
 MEPA_SUPPORTS_IN_SOURCE_BUILD = NO
 
-# vjardin/mesa vj_integration_allPR is a single integrated tree with mesa/,
-# mepa/, meba/, phy_demo_appl/ as siblings; no separate MESA tarball is
-# needed. mesa/demo/ builds mesa-cmd (the CLI) and mesa-demo-void (the
-# PHY-only daemon that mesa-cmd talks to over /var/run/cli_ipc.socket).
-# -DMESA_PHY_ONLY strips the switch source set out of mesa_demo_lib;
-# -Dapp_void enables the mesa-demo-void executable (no-switch variant).
 MEPA_CONF_OPTS = -DMESA_OPSYS_LINUX:BOOL=ON \
 				 -DBUILD_mepa:BOOL=ON \
 				 -DBUILD_MESA_DEMO:BOOL=ON \
