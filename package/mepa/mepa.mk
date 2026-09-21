@@ -131,4 +131,19 @@ define MEPA_INSTALL_INIT_SYSTEMD
 		$(TARGET_DIR)/etc/systemd/system/multi-user.target.wants/mesa-demo-void.service
 endef
 
+ifeq ($(BR2_PACKAGE_MEPA_SPIDEV_PROXY),y)
+define MEPA_INSTALL_INIT_SYSV
+	$(INSTALL) -D -m 0755 \
+		$(MEPA_PKGDIR)/S31mesa-demo-void \
+		$(TARGET_DIR)/etc/init.d/S31mesa-demo-void
+endef
+endif
+
+# Names the board tooling uses for the same binaries.
+define MEPA_INSTALL_COMPAT_SYMLINKS
+	ln -sf mesa-cmd $(TARGET_DIR)/usr/bin/mepa-cmd
+	ln -sf mesa-demo-void $(TARGET_DIR)/usr/bin/mesa-demo
+endef
+MEPA_POST_INSTALL_TARGET_HOOKS += MEPA_INSTALL_COMPAT_SYMLINKS
+
 $(eval $(cmake-package))
