@@ -1,6 +1,5 @@
 config BR2_PACKAGE_MEPA_SPIDEV_PROXY
 	bool "mepa-spidev-proxy"
-	depends on BR2_INIT_SYSTEMD
 	depends on BR2_TOOLCHAIN_HAS_THREADS
 	depends on !BR2_STATIC_LIBS
 	help
@@ -18,6 +17,10 @@ config BR2_PACKAGE_MEPA_SPIDEV_PROXY
 	    /usr/bin/spiproxy-cli          — ad-hoc client
 	    /usr/include/spi_proxy/spiproxy.h
 	    /usr/lib/cmake/mepa_spidev_proxy/   (find_package integration)
-	    /usr/lib/systemd/system/lan80xx-spid.service (enabled by default)
+	    /usr/lib/systemd/system/lan80xx-spid.service (systemd,
+	      enabled by default)
+	    /etc/init.d/S30lan80xx-spid (busybox or SysV init); the
+	      board values come from /etc/default/lan80xx-spid
+	      (SPIDEV, SPI_FREQ, SOCKET, RESET_LINE, DT_COMPATIBLE)
 
 	  https://github.com/vjardin/mepa-spidev-proxy

@@ -1,0 +1,89 @@
+#!/bin/sh
+#
+# LAN80xx SPI proxy daemon, owner of the spidev node of the PHY.
+#
+# /etc/default/lan80xx-spid (also read by S31mesa-demo-void):
+#   SPIDEV             spidev node of the PHY
+#   SPI_FREQ           SPI clock in Hz: spidev does not clamp a transfer to
+#                      the spi-max-frequency of the device tree
+#   SOCKET             AF_UNIX socket of the daemon
+#   RESET_LINE         name of the GPIO line of the PHY reset: enables
+#                      "spiproxy-cli reset", the only clean full reset
+#   DT_COMPATIBLE      only start on a board whose device tree has it
+#   LAN80XX_SPID_ARGS  more options
+
+DAEMON="lan80xx-spid"
+PIDFILE="/var/run/$DAEMON.pid"
+
+SPIDEV="/dev/spidev0.0"
+SPI_FREQ="5000000"
+SOCKET="/run/lan80xx-spid.sock"
+RESET_LINE=""
+DT_COMPATIBLE=""
+LAN80XX_SPID_ARGS=""
+
+# shellcheck source=/dev/null
+[ -r "/etc/default/$DAEMON" ] && . "/etc/default/$DAEMON"
+
+dt_match() {
+	[ -z "$DT_COMPATIBLE" ] && return 0
+	tr '\0' '\n' < /proc/device-tree/compatible 2>/dev/null |
+		grep -qxF "$DT_COMPATIBLE"
+}
+
+start() {
+	printf 'Starting %s: ' "$DAEMON"
+	if ! dt_match; then
+		echo "SKIP (not a $DT_COMPATIBLE)"
+		return 0
+	fi
+	if [ ! -c "$SPIDEV" ]; then
+		echo "FAIL ($SPIDEV not found)"
+		return 1
+	fi
+	# shellcheck disable=SC2086 # we need the word splitting
+	start-stop-daemon --start --background --make-pidfile \
+		--pidfile "$PIDFILE" --exec "/usr/bin/$DAEMON" \
+		-- -d "$SPIDEV" -f "$SPI_FREQ" -s "$SOCKET" \
+		${RESET_LINE:+-r "$RESET_LINE"} $LAN80XX_SPID_ARGS
+	status=$?
+	if [ "$status" -eq 0 ]; then
+		echo "OK"
+	else
+		echo "FAIL"
+	fi
+	return "$status"
+}
+
+stop() {
+	printf 'Stopping %s: ' "$DAEMON"
+	start-stop-daemon --stop --pidfile "$PIDFILE" --exec "/usr/bin/$DAEMON"
+	status=$?
+	if [ "$status" -eq 0 ]; then
+		echo "OK"
+	else
+		echo "FAIL"
+		return "$status"
+	fi
+	while start-stop-daemon --stop --test --quiet --pidfile "$PIDFILE" \
+		--exec "/usr/bin/$DAEMON"; do
+		sleep 0.1
+	done
+	rm -f "$PIDFILE"
+	return "$status"
+}
+
+restart() {
+	stop
+	start
+}
+
+case "$1" in
+	start|stop|restart)
+		"$1";;
+	reload)
+		restart;;
+	*)
+		echo "Usage: $0 {start|stop|restart|reload}"
+		exit 1
+esac
