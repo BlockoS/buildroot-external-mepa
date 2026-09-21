@@ -1,0 +1,58 @@
+From: Vincent Jardin <vjardin@free.fr>
+Date: Mon, 21 Sep 2026 18:00:00 +0200
+Subject: [PATCH] CMakeLists: the project only needs a C compiler
+
+project() without LANGUAGES enables C and CXX (top level, mepa/, meba/), so CMake tests a C++
+compiler at configure time. A Buildroot toolchain without C++ support
+sets CMAKE_CXX_COMPILER to /bin/false and the configure step fails:
+
+  /bin/false -o CMakeFiles/.../testCXXCompiler.cxx.o -c testCXXCompiler.cxx
+  CMake will not be able to correctly generate this project.
+
+Nothing that is built is C++ (the only C++ sources are the clang-tidy
+extension of .cmake/ctidy-ext), so declare C only instead of requiring
+libstdc++ on the target.
+
+Signed-off-by: Vincent Jardin <vjardin@free.fr>
+---
+ CMakeLists.txt      | 2 +-
+ meba/CMakeLists.txt | 2 +-
+ mepa/CMakeLists.txt | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --color -urN a/CMakeLists.txt b/CMakeLists.txt
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -3,7 +3,7 @@
+ 
+ cmake_minimum_required(VERSION 3.15)
+ 
+-project(vtss_api)
++project(vtss_api LANGUAGES C)
+ 
+ include(CMakeParseArguments)
+ include(.cmake/common.cmake)
+diff --color -urN a/meba/CMakeLists.txt b/meba/CMakeLists.txt
+--- a/meba/CMakeLists.txt
++++ b/meba/CMakeLists.txt
+@@ -1,7 +1,7 @@
+ # Copyright (c) 2004-2020 Microchip Technology Inc. and its subsidiaries.
+ # SPDX-License-Identifier: MIT
+ 
+-project(meba)
++project(meba LANGUAGES C)
+ 
+ cmake_minimum_required(VERSION 3.15)
+ 
+diff --color -urN a/mepa/CMakeLists.txt b/mepa/CMakeLists.txt
+--- a/mepa/CMakeLists.txt
++++ b/mepa/CMakeLists.txt
+@@ -1,7 +1,7 @@
+ # Copyright (c) 2004-2021 Microchip Technology Inc. and its subsidiaries.
+ # SPDX-License-Identifier: MIT
+ 
+-project(MEPA)
++project(MEPA LANGUAGES C)
+ 
+ cmake_minimum_required(VERSION 3.15)
+ include(.cmake/mepa-macros.cmake)
