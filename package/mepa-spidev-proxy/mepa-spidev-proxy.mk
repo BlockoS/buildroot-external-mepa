@@ -26,4 +26,17 @@ define MEPA_SPIDEV_PROXY_INSTALL_INIT_SYSTEMD
 		$(TARGET_DIR)/etc/systemd/system/sysinit.target.wants/lan80xx-spid.service
 endef
 
+define MEPA_SPIDEV_PROXY_INSTALL_INIT_SYSV
+	$(INSTALL) -D -m 0755 \
+		$(MEPA_SPIDEV_PROXY_PKGDIR)/S30lan80xx-spid \
+		$(TARGET_DIR)/etc/init.d/S30lan80xx-spid
+endef
+
+define MEPA_SPIDEV_PROXY_LINUX_CONFIG_FIXUPS
+	$(call KCONFIG_ENABLE_OPT,CONFIG_SPI)
+	$(call KCONFIG_SET_OPT,CONFIG_SPI_SPIDEV,y)
+	$(call KCONFIG_ENABLE_OPT,CONFIG_GPIOLIB)
+	$(call KCONFIG_ENABLE_OPT,CONFIG_GPIO_CDEV)
+endef
+
 $(eval $(cmake-package))
