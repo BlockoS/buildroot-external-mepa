@@ -1,0 +1,103 @@
+#!/bin/sh
+#
+# MESA demo (PHY-only)
+#
+# SOCKET and DT_COMPATIBLE come from /etc/default/lan80xx-spid.
+# /etc/default/mesa-demo-void: PORTS, CLI_SOCKET_TIMEOUT, MESA_DEMO_VOID_ARGS.
+
+DAEMON="mesa-demo-void"
+PIDFILE="/var/run/$DAEMON.pid"
+STDIN_FIFO="/var/run/$DAEMON.stdin"
+CLI_SOCKET="/var/run/cli_ipc.socket"
+
+SOCKET="/run/lan80xx-spid.sock"
+DT_COMPATIBLE=""
+# "Dev Create 1..PORTS" relies on it
+PORTS="4"
+# mesa-cmd blocks forever when the CLI socket does not exist
+CLI_SOCKET_TIMEOUT="30"
+MESA_DEMO_VOID_ARGS=""
+
+# shellcheck source=/dev/null
+[ -r "/etc/default/lan80xx-spid" ] && . "/etc/default/lan80xx-spid"
+# shellcheck source=/dev/null
+[ -r "/etc/default/$DAEMON" ] && . "/etc/default/$DAEMON"
+
+dt_match() {
+	[ -z "$DT_COMPATIBLE" ] && return 0
+	tr '\0' '\n' < /proc/device-tree/compatible 2>/dev/null |
+		grep -qxF "$DT_COMPATIBLE"
+}
+
+# wait_socket <path> <seconds>
+wait_socket() {
+	i=0
+	while [ ! -S "$1" ] && [ "$i" -lt "$(($2 * 10))" ]; do
+		sleep 0.1
+		i=$((i + 1))
+	done
+	[ -S "$1" ]
+}
+
+start() {
+	printf 'Starting %s: ' "$DAEMON"
+	if ! dt_match; then
+		echo "SKIP (not a $DT_COMPATIBLE)"
+		return 0
+	fi
+	if ! wait_socket "$SOCKET" 30; then
+		echo "FAIL ($SOCKET not found)"
+		return 1
+	fi
+	# Started in the background, stdin would be /dev/null and the CLI loop
+	# exits on EOF. A FIFO opened read-write never reports EOF and keeps the
+	# daemon a single process.
+	[ -p "$STDIN_FIFO" ] || { rm -f "$STDIN_FIFO"; mkfifo "$STDIN_FIFO"; }
+	rm -f "$CLI_SOCKET"
+	start-stop-daemon --start --background --make-pidfile \
+		--pidfile "$PIDFILE" --startas /bin/sh \
+		-- -c "exec /usr/bin/$DAEMON -P proxy:$SOCKET:$PORTS $MESA_DEMO_VOID_ARGS <>$STDIN_FIFO"
+	status=$?
+	if [ "$status" -eq 0 ] && ! wait_socket "$CLI_SOCKET" "$CLI_SOCKET_TIMEOUT"; then
+		echo "FAIL ($CLI_SOCKET not found)"
+		return 1
+	fi
+	if [ "$status" -eq 0 ]; then
+		echo "OK"
+	else
+		echo "FAIL"
+	fi
+	return "$status"
+}
+
+stop() {
+	printf 'Stopping %s: ' "$DAEMON"
+	start-stop-daemon --stop --pidfile "$PIDFILE"
+	status=$?
+	if [ "$status" -eq 0 ]; then
+		echo "OK"
+	else
+		echo "FAIL"
+		return "$status"
+	fi
+	while start-stop-daemon --stop --test --quiet --pidfile "$PIDFILE"; do
+		sleep 0.1
+	done
+	rm -f "$PIDFILE" "$STDIN_FIFO"
+	return "$status"
+}
+
+restart() {
+	stop
+	start
+}
+
+case "$1" in
+	start|stop|restart)
+		"$1";;
+	reload)
+		restart;;
+	*)
+		echo "Usage: $0 {start|stop|restart|reload}"
+		exit 1
+esac
