@@ -21,9 +21,9 @@ define MEPA_SPIDEV_PROXY_INSTALL_INIT_SYSTEMD
 	$(INSTALL) -D -m 0644 \
 		$(MEPA_SPIDEV_PROXY_PKGDIR)/lan80xx-spid.service \
 		$(TARGET_DIR)/usr/lib/systemd/system/lan80xx-spid.service
-	mkdir -p $(TARGET_DIR)/etc/systemd/system/sysinit.target.wants
+	mkdir -p $(TARGET_DIR)/etc/systemd/system/multi-user.target.wants
 	ln -sf ../../../../usr/lib/systemd/system/lan80xx-spid.service \
-		$(TARGET_DIR)/etc/systemd/system/sysinit.target.wants/lan80xx-spid.service
+		$(TARGET_DIR)/etc/systemd/system/multi-user.target.wants/lan80xx-spid.service
 endef
 
 define MEPA_SPIDEV_PROXY_INSTALL_INIT_SYSV
