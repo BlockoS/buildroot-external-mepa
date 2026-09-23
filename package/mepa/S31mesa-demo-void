@@ -3,7 +3,8 @@
 # MESA demo (PHY-only)
 #
 # SOCKET and DT_COMPATIBLE come from /etc/default/lan80xx-spid.
-# /etc/default/mesa-demo-void: PORTS, CLI_SOCKET_TIMEOUT, MESA_DEMO_VOID_ARGS.
+# /etc/default/mesa-demo-void: PORTS, SLICE_ORDER, CLI_SOCKET_TIMEOUT,
+# MESA_DEMO_VOID_ARGS.
 
 DAEMON="mesa-demo-void"
 PIDFILE="/var/run/$DAEMON.pid"
@@ -14,6 +15,10 @@ SOCKET="/run/lan80xx-spid.sock"
 DT_COMPATIBLE=""
 # "Dev Create 1..PORTS" relies on it
 PORTS="4"
+# port -> slice wiring of the board, appended to -P: "order=rev" (port 0 on
+# the highest slice, the default of mesa-demo-void), "order=fwd" or
+# "map=a,b,..."
+SLICE_ORDER=""
 # mesa-cmd blocks forever when the CLI socket does not exist
 CLI_SOCKET_TIMEOUT="30"
 MESA_DEMO_VOID_ARGS=""
@@ -56,7 +61,7 @@ start() {
 	rm -f "$CLI_SOCKET"
 	start-stop-daemon --start --background --make-pidfile \
 		--pidfile "$PIDFILE" --startas /bin/sh \
-		-- -c "exec /usr/bin/$DAEMON -P proxy:$SOCKET:$PORTS $MESA_DEMO_VOID_ARGS <>$STDIN_FIFO"
+		-- -c "exec /usr/bin/$DAEMON -P proxy:$SOCKET:$PORTS${SLICE_ORDER:+:$SLICE_ORDER} $MESA_DEMO_VOID_ARGS <>$STDIN_FIFO"
 	status=$?
 	if [ "$status" -eq 0 ] && ! wait_socket "$CLI_SOCKET" "$CLI_SOCKET_TIMEOUT"; then
 		echo "FAIL ($CLI_SOCKET not found)"
