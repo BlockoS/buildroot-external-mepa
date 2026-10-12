@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-MEPA_VERSION = a8765c16ba1f142e16cb83a6e7f33aecd6091c5d
+MEPA_VERSION = 6370c42039d4fb7a6b518e968b88e56ed0a8b594 # head of branch vj_integration_v2026.09
 MEPA_SITE = https://github.com/vjardin/mesa.git
 MEPA_SITE_METHOD = git
 MEPA_LICENSE = MIT
