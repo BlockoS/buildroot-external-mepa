@@ -22,6 +22,7 @@ SLICE_ORDER=""
 # mesa-cmd blocks forever when the CLI socket does not exist
 CLI_SOCKET_TIMEOUT="30"
 MESA_DEMO_VOID_ARGS=""
+MESA_DEMO_VOID_LOG=""
 
 # shellcheck source=/dev/null
 [ -r "/etc/default/lan80xx-spid" ] && . "/etc/default/lan80xx-spid"
@@ -54,6 +55,11 @@ start() {
 		echo "FAIL ($SOCKET not found)"
 		return 1
 	fi
+	running=$(pidof "$DAEMON")
+	if [ -n "$running" ]; then
+		echo "FAIL (already running, pid $running: stop it first, a second instance would take the CLI socket)"
+		return 1
+	fi
 	# Started in the background, stdin would be /dev/null and the CLI loop
 	# exits on EOF. A FIFO opened read-write never reports EOF and keeps the
 	# daemon a single process.
@@ -61,7 +67,7 @@ start() {
 	rm -f "$CLI_SOCKET"
 	start-stop-daemon --start --background --make-pidfile \
 		--pidfile "$PIDFILE" --startas /bin/sh \
-		-- -c "exec /usr/bin/$DAEMON -P proxy:$SOCKET:$PORTS${SLICE_ORDER:+:$SLICE_ORDER} $MESA_DEMO_VOID_ARGS <>$STDIN_FIFO"
+		-- -c "exec /usr/bin/$DAEMON -P proxy:$SOCKET:$PORTS${SLICE_ORDER:+:$SLICE_ORDER} $MESA_DEMO_VOID_ARGS <>$STDIN_FIFO${MESA_DEMO_VOID_LOG:+ >>$MESA_DEMO_VOID_LOG 2>&1}"
 	status=$?
 	if [ "$status" -eq 0 ] && ! wait_socket "$CLI_SOCKET" "$CLI_SOCKET_TIMEOUT"; then
 		echo "FAIL ($CLI_SOCKET not found)"
@@ -77,6 +83,12 @@ start() {
 
 stop() {
 	printf 'Stopping %s: ' "$DAEMON"
+	if ! start-stop-daemon --stop --test --quiet --pidfile "$PIDFILE" 2>/dev/null; then
+		running=$(pidof "$DAEMON")
+		if [ -n "$running" ]; then
+			echo "$running" | tr ' ' '\n' | head -1 > "$PIDFILE"
+		fi
+	fi
 	start-stop-daemon --stop --pidfile "$PIDFILE"
 	status=$?
 	if [ "$status" -eq 0 ]; then
