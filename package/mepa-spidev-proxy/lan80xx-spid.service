@@ -5,6 +5,8 @@ Wants=dev-spidev0.0.device
 After=dev-spidev0.0.device local-fs.target
 Before=network-pre.target
 
+# TS FIFO drain by interrupt: add -i auto|only [-g <line>[:a|:b]] [-w <ms>] to
+# ExecStart (the SysV script reads TSFIFO_IRQ_* from /etc/default/lan80xx-spid)
 [Service]
 Type=simple
 ExecStart=/usr/bin/lan80xx-spid -d /dev/spidev0.0 -f 8000000
