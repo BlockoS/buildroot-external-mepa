@@ -10,6 +10,10 @@
 #   RESET_LINE         name of the GPIO line of the PHY reset: enables
 #                      "spiproxy-cli reset", the only clean full reset
 #   DT_COMPATIBLE      only start on a board whose device tree has it
+#   TSFIFO_IRQ_MODE    TS FIFO drain: none, auto, only
+#   TSFIFO_IRQ_LINE    CPU GPIO line with PHY interrupt, NAME[:a|:b] = the
+#                      chip pin (INTR_A/INTR_B); default: lan8023-mdint:a
+#   TSFIFO_IRQ_IDLE_MS auto mode's polling tail; empty = the daemon's default
 #   LAN80XX_SPID_ARGS  more options
 
 DAEMON="lan80xx-spid"
@@ -20,6 +24,9 @@ SPI_FREQ="5000000"
 SOCKET="/run/lan80xx-spid.sock"
 RESET_LINE=""
 DT_COMPATIBLE=""
+TSFIFO_IRQ_MODE=""
+TSFIFO_IRQ_LINE=""
+TSFIFO_IRQ_IDLE_MS=""
 LAN80XX_SPID_ARGS=""
 
 # shellcheck source=/dev/null
@@ -45,7 +52,11 @@ start() {
 	start-stop-daemon --start --background --make-pidfile \
 		--pidfile "$PIDFILE" --exec "/usr/bin/$DAEMON" \
 		-- -d "$SPIDEV" -f "$SPI_FREQ" -s "$SOCKET" \
-		${RESET_LINE:+-r "$RESET_LINE"} $LAN80XX_SPID_ARGS
+		${RESET_LINE:+-r "$RESET_LINE"} \
+		${TSFIFO_IRQ_MODE:+-i "$TSFIFO_IRQ_MODE"} \
+		${TSFIFO_IRQ_LINE:+-g "$TSFIFO_IRQ_LINE"} \
+		${TSFIFO_IRQ_IDLE_MS:+-w "$TSFIFO_IRQ_IDLE_MS"} \
+		$LAN80XX_SPID_ARGS
 	status=$?
 	if [ "$status" -eq 0 ]; then
 		echo "OK"
