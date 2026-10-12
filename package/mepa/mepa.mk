@@ -147,3 +147,9 @@ endef
 MEPA_POST_INSTALL_TARGET_HOOKS += MEPA_INSTALL_COMPAT_SYMLINKS
 
 $(eval $(cmake-package))
+
+# XXX: only for the spidev proxy or alwyas ?
+ifeq ($(BR2_PACKAGE_MEPA_SPIDEV_PROXY),y)
+$(MEPA_SPIDEV_PROXY_TARGET_CONFIGURE): | \
+	$(if $(MEPA_OVERRIDE_SRCDIR),$(MEPA_TARGET_RSYNC),$(MEPA_TARGET_PATCH))
+endif
