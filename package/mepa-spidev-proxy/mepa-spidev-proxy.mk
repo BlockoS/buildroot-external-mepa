@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-MEPA_SPIDEV_PROXY_VERSION = 4aecafd004b2895c00ba791bc8911ef37df3067a
+MEPA_SPIDEV_PROXY_VERSION = 503e6ab1de5b8c132190966a636ab24eb3c39b2c
 MEPA_SPIDEV_PROXY_SITE = https://github.com/vjardin/mepa-spidev-proxy.git
 MEPA_SPIDEV_PROXY_SITE_METHOD = git
 MEPA_SPIDEV_PROXY_LICENSE = MIT
