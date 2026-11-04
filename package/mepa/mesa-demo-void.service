@@ -1,5 +1,5 @@
 [Unit]
-Description=MESA demo (PHY-only) — serves mesa-cmd via /var/run/cli_ipc.socket
+Description=MESA demo (PHY-only) - serves mesa-cmd via /var/run/cli_ipc.socket
 Documentation=https://github.com/vjardin/mesa
 Requires=lan80xx-spid.service
 After=lan80xx-spid.service local-fs.target
@@ -10,8 +10,10 @@ Type=simple
 # StandardInput=null, read() returns EOF immediately and the daemon exits.
 # Feed it a never-closing pipe so it stays alive to serve /var/run/cli_ipc.socket.
 # SLICE_ORDER: port -> slice wiring of the board, see S31mesa-demo-void.
+# -f keeps the daemon in the foreground: without it daemon(3) forks and the
+# process systemd tracks exits, so Restart=on-failure never fires.
 EnvironmentFile=-/etc/default/mesa-demo-void
-ExecStart=/bin/sh -c 'exec sleep infinity | exec /usr/bin/mesa-demo-void -P proxy:/run/lan80xx-spid.sock$${SLICE_ORDER:+:$$SLICE_ORDER}'
+ExecStart=/bin/sh -c 'exec sleep infinity | exec /usr/bin/mesa-demo-void -f -P proxy:/run/lan80xx-spid.sock$${SLICE_ORDER:+:$$SLICE_ORDER}'
 Restart=on-failure
 RestartSec=2s
 

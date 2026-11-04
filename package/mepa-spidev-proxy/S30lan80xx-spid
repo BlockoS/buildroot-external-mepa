@@ -5,7 +5,8 @@
 # /etc/default/lan80xx-spid (also read by S31mesa-demo-void):
 #   SPIDEV             spidev node of the PHY
 #   SPI_FREQ           SPI clock in Hz: spidev does not clamp a transfer to
-#                      the spi-max-frequency of the device tree
+#                      the spi-max-frequency of the device tree. Default
+#                      matches lan80xx-spid.service.
 #   SOCKET             AF_UNIX socket of the daemon
 #   RESET_LINE         name of the GPIO line of the PHY reset: enables
 #                      "spiproxy-cli reset", the only clean full reset
@@ -20,7 +21,7 @@ DAEMON="lan80xx-spid"
 PIDFILE="/var/run/$DAEMON.pid"
 
 SPIDEV="/dev/spidev0.0"
-SPI_FREQ="5000000"
+SPI_FREQ="8000000"
 SOCKET="/run/lan80xx-spid.sock"
 RESET_LINE=""
 DT_COMPATIBLE=""
@@ -77,7 +78,7 @@ stop() {
 		return "$status"
 	fi
 	while start-stop-daemon --stop --test --quiet --pidfile "$PIDFILE" \
-		--exec "/usr/bin/$DAEMON"; do
+		--exec "/usr/bin/$DAEMON" 2>/dev/null; do
 		sleep 0.1
 	done
 	rm -f "$PIDFILE"
